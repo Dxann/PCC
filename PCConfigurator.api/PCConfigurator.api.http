@@ -1,0 +1,6 @@
+@PCConfigurator.api_HostAddress = http://localhost:5022
+
+GET {{PCConfigurator.api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
