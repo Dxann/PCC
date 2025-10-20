@@ -7,5 +7,8 @@
         public int Cores { get; set; }
         public float Frequency { get; set; }
         public decimal Price { get; set; }
+
+
     }
+
 }

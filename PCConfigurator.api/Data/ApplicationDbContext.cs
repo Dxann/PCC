@@ -10,5 +10,9 @@ namespace PCConfigurator.API.Data
 
         public DbSet<CPU> CPUs => Set<CPU>();
         public DbSet<GPU> GPUs => Set<GPU>();
+
+        public DbSet<PCBuild> PCBuilds => Set<PCBuild>();
+
+
     }
 }
