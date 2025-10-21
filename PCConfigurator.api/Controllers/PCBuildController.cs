@@ -18,6 +18,7 @@ namespace PCConfigurator.API.Controllers
             var builds = await _context.PCBuilds
                 .Include(b => b.CPU)
                 .Include(b => b.GPU)
+                .Include(b => b.RAM)
                 .ToListAsync();
             return Ok(builds);
         }

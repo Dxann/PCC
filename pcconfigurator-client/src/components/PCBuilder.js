@@ -8,7 +8,6 @@ export default function PCBuilder() {
   const [selectedGPU, setSelectedGPU] = useState(null);
   const [buildName, setBuildName] = useState("");
 
-  // Загружаем CPU и GPU при старте
   useEffect(() => {
     axios.get("https://localhost:7200/api/cpu").then(res => setCpus(res.data));
     axios.get("https://localhost:7200/api/gpu").then(res => setGpus(res.data));

@@ -12,7 +12,6 @@ namespace PCConfigurator.API.Models
         public string Name { get; set; } = string.Empty;
 
         // Связь с CPU
-        // Связь с CPU
         public int CPUId { get; set; }
         [ForeignKey("CPUId")]
         public CPU? CPU { get; set; }
@@ -21,6 +20,12 @@ namespace PCConfigurator.API.Models
         public int GPUId { get; set; }
         [ForeignKey("GPUId")]
         public GPU? GPU { get; set; }
+
+        //Связь с RAM
+        public int RAMId { get; set; }
+        [ForeignKey("RAMId")]
+        public CPU? RAM { get; set; }
+        
 
 
         // Итоговая цена сборки (можно вычислять или хранить)
