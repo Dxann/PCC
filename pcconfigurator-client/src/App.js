@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
 import Header from "./components/Header";
 import PCBuilder from "./components/PCBuilder";
 import MainPage from "./components/MainPage";
+import AdminPanel from "./components/AdminPanel";
 
 function Home() {
   return <MainPage />;
@@ -30,6 +31,7 @@ function App() {
           <Route path="/configurations" element={<Configurations />} />
           <Route path="/guides" element={<Guides />} />
           <Route path="/chatbot" element={<ChatBot />} />
+          <Route path="/admin" element={<AdminPanel />} />
         </Routes>
       </div>
     </Router>
