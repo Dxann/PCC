@@ -11,7 +11,7 @@ export default function RAMForm({ onAdded }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const res = await axios.post("https://localhost:7200/api/CPU", {
+      const res = await axios.post("https://localhost:7200/api/RAM", {
         name,
         memorygb: parseInt(memorygb),
         frequency: parseInt(frequency),

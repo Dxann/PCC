@@ -1,10 +1,12 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PCConfigurator.API.Data;
 using PCConfigurator.API.Models;
 
 namespace PCConfigurator.api.Controllers
 {
+
     [ApiController]
     [Route("api/[controller]")]
     public class RAMController : ControllerBase

@@ -1,9 +1,12 @@
 import React from "react";
-import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Header from "./components/Header";
 import PCBuilder from "./components/PCBuilder";
 import MainPage from "./components/MainPage";
 import AdminPanel from "./components/AdminPanel";
+import ProtectedRoute from "./components/ProtectedRoute";
+import Login from "./components/Login";
+import Register from "./components/Register";
 
 function Home() {
   return <MainPage />;
@@ -31,7 +34,17 @@ function App() {
           <Route path="/configurations" element={<Configurations />} />
           <Route path="/guides" element={<Guides />} />
           <Route path="/chatbot" element={<ChatBot />} />
-          <Route path="/admin" element={<AdminPanel />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          {/* Защищённый маршрут для админки с проверкой роли */}
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute role="Admin">
+                <AdminPanel />
+              </ProtectedRoute>
+            }
+          />
         </Routes>
       </div>
     </Router>

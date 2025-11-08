@@ -1,29 +1,51 @@
 .header {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  justify-content: flex-start;
-  padding: 10px 30px;
+  padding: 10px 20px;
   background-color: #222;
-  color: #fff;
+  color: white;
 }
 
 .logo {
   font-size: 24px;
   font-weight: bold;
-  margin-right: 20px;
-  color: #fff;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 15px;
 }
 
 .nav-links a {
-  margin-left: 40px;
-  padding: 8px 12px;
-  background: none;
+  color: white;
   text-decoration: none;
-  color: #fff;
-  border: none;
-  cursor: pointer;
+  padding: 5px 10px;
+  border-radius: 4px;
 }
 
 .nav-links a:hover {
-  color: #5679ef;
+  background-color: #444;
+}
+
+.auth-links {
+  display: flex;
+  gap: 10px;
+  margin-left: 20px;
+}
+
+.login-btn, .register-btn {
+  border: 1px solid white;
+  padding: 5px 10px;
+  border-radius: 4px;
+}
+
+.logout-btn {
+  background-color: #f44336;
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  cursor: pointer;
+  border-radius: 4px;
 }

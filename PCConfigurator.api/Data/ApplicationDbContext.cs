@@ -1,14 +1,20 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using PCConfigurator.api.Models;
 using PCConfigurator.API.Models;
 
 namespace PCConfigurator.API.Data
 {
-    public class ApplicationDbContext : DbContext
+    // Наследуемся от IdentityDbContext<ApplicationUser>, чтобы работать с Identity
+    public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     {
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
-            : base(options) { }
+            : base(options)
+        {
+        }
 
+        // DbSet для комплектующих
         public DbSet<CPU> CPUs => Set<CPU>();
         public DbSet<GPU> GPUs => Set<GPU>();
         public DbSet<RAM> RAMs => Set<RAM>();
@@ -18,9 +24,12 @@ namespace PCConfigurator.API.Data
         public DbSet<PSU> PSUs => Set<PSU>();
         public DbSet<ThermalPaste> ThermalPastes => Set<ThermalPaste>();
         public DbSet<Case> Cases => Set<Case>();
-
         public DbSet<PCBuild> PCBuilds => Set<PCBuild>();
 
-
+        protected override void OnModelCreating(ModelBuilder builder)
+        {
+            base.OnModelCreating(builder); // обязательно вызывать для Identity
+            // Дополнительно можно настраивать таблицы, если нужно
+        }
     }
 }

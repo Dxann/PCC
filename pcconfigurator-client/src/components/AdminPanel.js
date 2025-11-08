@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 import CPUForm from "./CPUForm";
 import GPUForm from "./GPUForm";
@@ -9,7 +9,7 @@ import PSUForm from "./PSUForm";
 import MBForm from "./MBForm";
 import CaseForm from "./CaseForm";
 import ThermalPasteForm from "./ThermalPasteForm";
-import ItemList from "./ItemList";
+// import ItemList from "./ItemList";
 
 export default function AdminPanel() {
   const [cpus, setCpus] = useState([]);
@@ -21,20 +21,39 @@ export default function AdminPanel() {
   const [mbs, setMbs] = useState([]);
   const [cases, setCases] = useState([]);
   const [thermal, setThermal] = useState([]);
+  const [error, setError] = useState("");
+
+  const token = localStorage.getItem("token");
+  const role = localStorage.getItem("role");
 
   const fetchAll = async () => {
+    if (!token) return;
+    const headers = { Authorization: `Bearer ${token}` };
+
     try {
-      const [cpuRes, gpuRes, ramRes, ssdRes, hddRes, psuRes, mbRes, caseRes, thermalRes] = await Promise.all([
-        axios.get("https://localhost:7200/api/CPU"),
-        axios.get("https://localhost:7200/api/GPU"),
-        axios.get("https://localhost:7200/api/RAM"),
-        axios.get("https://localhost:7200/api/SSD"),
-        axios.get("https://localhost:7200/api/HDD"),
-        axios.get("https://localhost:7200/api/PSU"),
-        axios.get("https://localhost:7200/api/MB"),
-        axios.get("https://localhost:7200/api/Case"),
-        axios.get("https://localhost:7200/api/ThermalPaste"),
+      // Загружаем все данные параллельно
+      const [
+        cpuRes,
+        gpuRes,
+        ramRes,
+        ssdRes,
+        hddRes,
+        psuRes,
+        mbRes,
+        caseRes,
+        thermalRes,
+      ] = await Promise.all([
+        axios.get("https://localhost:7200/api/CPU", { headers }),
+        axios.get("https://localhost:7200/api/GPU", { headers }),
+        axios.get("https://localhost:7200/api/RAM", { headers }),
+        axios.get("https://localhost:7200/api/SSD", { headers }),
+        axios.get("https://localhost:7200/api/HDD", { headers }),
+        axios.get("https://localhost:7200/api/PSU", { headers }),
+        axios.get("https://localhost:7200/api/Motherboard", { headers }),
+        axios.get("https://localhost:7200/api/Case", { headers }),
+        axios.get("https://localhost:7200/api/ThermalPaste", { headers }),
       ]);
+
       setCpus(cpuRes.data);
       setGpus(gpuRes.data);
       setRams(ramRes.data);
@@ -45,35 +64,52 @@ export default function AdminPanel() {
       setCases(caseRes.data);
       setThermal(thermalRes.data);
     } catch (err) {
-      console.error(err);
+      console.error("Ошибка при загрузке данных:", err);
+      setError("⚠ Ошибка при загрузке данных или нет доступа.");
     }
   };
 
-  useEffect(() => { fetchAll(); }, []);
+  // Загружаем данные при монтировании и изменении токена
+  useEffect(() => {
+    if (token && role === "Admin") {
+      fetchAll();
+    }
+  }, [token, role]);
+
+  // Проверка токена и роли
+  if (!token) {
+    return <p>⚠ Нет доступа. Пожалуйста, войдите в систему.</p>;
+  }
+
+  if (role !== "Admin") {
+    return <p>🚫 Доступ запрещён. Только для администраторов.</p>;
+  }
+
+  if (error) {
+    return <p>{error}</p>;
+  }
 
   return (
     <div style={{ padding: "20px" }}>
-      <h2>Admin Panel</h2>
+      <h2>Панель администратора</h2>
 
-      <CPUForm onAdded={(item) => { setCpus([...cpus, item]); }} />
-      <GPUForm onAdded={(item) => { setGpus([...gpus, item]); }} />
-      <RAMForm onAdded={(item) => { setRams([...rams, item]); }} />
-      <SSDForm onAdded={(item) => { setSsds([...ssds, item]); }} />
-      <HDDForm onAdded={(item) => { setHdds([...hdds, item]); }} />
-      <PSUForm onAdded={(item) => { setPsus([...psus, item]); }} />
-      <MBForm onAdded={(item) => { setMbs([...mbs, item]); }} />
-      <CaseForm onAdded={(item) => { setCases([...cases, item]); }} />
-      <ThermalPasteForm onAdded={(item) => { setThermal([...thermal, item]); }} />
+      <CPUForm onAdded={(item) => setCpus([...cpus, item])} />
+      <GPUForm onAdded={(item) => setGpus([...gpus, item])} />
+      <RAMForm onAdded={(item) => setRams([...rams, item])} />
+      <SSDForm onAdded={(item) => setSsds([...ssds, item])} />
+      <HDDForm onAdded={(item) => setHdds([...hdds, item])} />
+      <PSUForm onAdded={(item) => setPsus([...psus, item])} />
+      <MBForm onAdded={(item) => setMbs([...mbs, item])} />
+      <CaseForm onAdded={(item) => setCases([...cases, item])} />
+      <ThermalPasteForm onAdded={(item) => setThermal([...thermal, item])} />
 
-      {/* <ItemList items={cpus} title="CPUs" />
-      <ItemList items={gpus} title="GPUs" /> */}
-      {/* <ItemList items={rams} title="RAMs" />
-      <ItemList items={ssds} title="SSDs" />
-      <ItemList items={hdds} title="HDDs" />
-      <ItemList items={psus} title="PSUs" />
-      <ItemList items={mbs} title="Motherboards" />
-      <ItemList items={cases} title="Cases" />
-      <ItemList items={thermal} title="Thermal Pastes" /> */}
+      {/* При желании вернуть список компонентов */}
+      {/* 
+      <ItemList items={cpus} title="CPUs" />
+      <ItemList items={gpus} title="GPUs" />
+      <ItemList items={rams} title="RAMs" />
+      ...
+      */}
     </div>
   );
 }

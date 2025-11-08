@@ -6,6 +6,12 @@ const categories = [
   { id: "CPU", name: "Процессоры", icon: "/images/cpu.png" },
   { id: "GPU", name: "Видеокарты", icon: "/images/gpu.png" },
   { id: "RAM", name: "Оперативная память", icon: "/images/ram.png" },
+  { id: "Motherboard", name: "Материнская плата", icon: "/images/mb.png" },
+  { id: "SSD", name: "SSD", icon: "/images/ssd.png" },
+  { id: "HDD", name: "Жёсткий диск", icon: "/images/hdd.png" },
+  { id: "PSU", name: "Блок питания", icon: "/images/psu.png" },
+  { id: "Case", name: "Корпус", icon: "/images/case.png" },
+  { id: "ThermalPaste", name: "Термопаста", icon: "/images/thermal.png" }
 ];
 
 export default function MainPage() {
@@ -15,7 +21,7 @@ export default function MainPage() {
   useEffect(() => {
     if (!selectedCategory) return;
     axios
-      .get(`https://localhost:7200/api/${selectedCategory.toLowerCase()}`)
+      .get(`https://localhost:7200/api/${selectedCategory}`)
       .then(res => setItems(res.data))
       .catch(err => console.error("Ошибка загрузки:", err));
   }, [selectedCategory]);

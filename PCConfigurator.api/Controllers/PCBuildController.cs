@@ -6,6 +6,7 @@ using PCConfigurator.API.Models;
 
 namespace PCConfigurator.api.Controllers
 {
+
     [ApiController]
     [Route("api/[controller]")]
     public class PCBuildController : ControllerBase

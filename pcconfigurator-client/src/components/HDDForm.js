@@ -9,7 +9,7 @@ export default function HDDForm({ onAdded }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const res = await axios.post("https://localhost:7200/api/CPU", {
+      const res = await axios.post("https://localhost:7200/api/HDD", {
         name,
         capacitygb: parseInt(capacitygb),
         price: parseFloat(price),

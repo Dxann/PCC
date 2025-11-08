@@ -9,9 +9,9 @@ export default function CaseForm({ onAdded }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const res = await axios.post("https://localhost:7200/api/CPU", {
+      const res = await axios.post("https://localhost:7200/api/Case", {
         name,
-        formfactor: parseInt(formfactor),
+        formfactor: formfactor,
         price: parseFloat(price),
       });
       onAdded(res.data);
@@ -25,7 +25,7 @@ export default function CaseForm({ onAdded }) {
     <form onSubmit={handleSubmit} style={{ marginBottom: "20px" }}>
       <h4>Корпус</h4>
       <input placeholder="Название" value={name} onChange={e => setName(e.target.value)} required />
-      <input placeholder="Форма" type="number" value={formfactor} onChange={e => setFormFactor(e.target.value)} required />
+      <input placeholder="Форма" value={formfactor} onChange={e => setFormFactor(e.target.value)} required />
       <input placeholder="Цена" type="number" value={price} onChange={e => setPrice(e.target.value)} required />
       <button type="submit">Добавить</button>
     </form>
