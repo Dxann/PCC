@@ -1,0 +1,326 @@
+[
+  {
+    "Name": "Термопаста Arctic Cooling MX-4 (2019)",
+    "Manufacturer": "Unknown",
+    "Price": 550,
+    "ImageUrl": "./thermalpaste1_files/d5d1444aa3446a3339962e75727ba1dfe17d4e1eb17228cdd8ac40a7a2273121.jpg",
+    "ShortDescription": "ACTCP00008B | шприц, 8 г, 8.5 Вт/мК",
+    "ThermalConductivity": 8.5,
+    "Volume": 8.0
+  },
+  {
+    "Name": "Термопаста Arctic Cooling MX-4 (2019)",
+    "Manufacturer": "Unknown",
+    "Price": 550,
+    "ImageUrl": "./thermalpaste1_files/f31d87e964366571dfb1df548e573e31bd2917c1d6544ef955e3a367d1e833ec.jpg",
+    "ShortDescription": "ACTCP00002B | шприц, 4 г, 8.5 Вт/мК",
+    "ThermalConductivity": 8.5,
+    "Volume": 4.0
+  },
+  {
+    "Name": "Термопаста Arctic Cooling MX-6",
+    "Manufacturer": "Unknown",
+    "Price": 599,
+    "ImageUrl": "",
+    "ShortDescription": "ACTCP00080A | шприц, 4 г, 8 Вт/мК",
+    "ThermalConductivity": 8.0,
+    "Volume": 4.0
+  },
+  {
+    "Name": "Термопаста Arctic Cooling MX-4 (2019)",
+    "Manufacturer": "Unknown",
+    "Price": 1099,
+    "ImageUrl": "",
+    "ShortDescription": "ACTCP00001B | шприц, 20 г, 8.5 Вт/мК",
+    "ThermalConductivity": 8.5,
+    "Volume": 20.0
+  },
+  {
+    "Name": "Термопаста Arctic Cooling MX-4",
+    "Manufacturer": "Unknown",
+    "Price": 599,
+    "ImageUrl": "",
+    "ShortDescription": "ACTCP00059A | шприц, 8 г, 8.5 Вт/мК",
+    "ThermalConductivity": 8.5,
+    "Volume": 8.0
+  },
+  {
+    "Name": "Термопаста Arctic Cooling MX-4 (2019)",
+    "Manufacturer": "Unknown",
+    "Price": 1950,
+    "ImageUrl": "",
+    "ShortDescription": "ACTCP00024A | шприц, 45 г, 8.5 Вт/мК",
+    "ThermalConductivity": 8.5,
+    "Volume": 45.0
+  },
+  {
+    "Name": "Термопаста STEEL Frost Diamond Game-X",
+    "Manufacturer": "Unknown",
+    "Price": 499,
+    "ImageUrl": "",
+    "ShortDescription": "STP-5 | шприц, 3 г, 12.6 Вт/мК",
+    "ThermalConductivity": 12.6,
+    "Volume": 3.0
+  },
+  {
+    "Name": "Термопаста Arctic Cooling MX-6",
+    "Manufacturer": "Unknown",
+    "Price": 950,
+    "ImageUrl": "",
+    "ShortDescription": "ACTCP00081A | шприц, 8 г, 8 Вт/мК",
+    "ThermalConductivity": 8.0,
+    "Volume": 8.0
+  },
+  {
+    "Name": "Термопаста Evercool Nano Diamond",
+    "Manufacturer": "Unknown",
+    "Price": 499,
+    "ImageUrl": "",
+    "ShortDescription": "TC-H03 | шприц, 5 г, 12 Вт/мК",
+    "ThermalConductivity": 12.0,
+    "Volume": 5.0
+  },
+  {
+    "Name": "Термопаста ID-COOLING FROST X35",
+    "Manufacturer": "Unknown",
+    "Price": 850,
+    "ImageUrl": "",
+    "ShortDescription": "шприц, 4 г, 14.2 Вт/мК",
+    "ThermalConductivity": 14.2,
+    "Volume": 4.0
+  },
+  {
+    "Name": "Термопаста Arctic Cooling MX-4",
+    "Manufacturer": "Unknown",
+    "Price": 499,
+    "ImageUrl": "",
+    "ShortDescription": "ACTCP00031B | шприц, 4 г, 8.5 Вт/мК",
+    "ThermalConductivity": 8.5,
+    "Volume": 4.0
+  },
+  {
+    "Name": "Термопаста ID-COOLING FROST X25",
+    "Manufacturer": "Unknown",
+    "Price": 350,
+    "ImageUrl": "",
+    "ShortDescription": "шприц, 2 г, 10.5 Вт/мК",
+    "ThermalConductivity": 10.5,
+    "Volume": 2.0
+  },
+  {
+    "Name": "Термопаста DEEPCOOL Z5",
+    "Manufacturer": "Unknown",
+    "Price": 299,
+    "ImageUrl": "",
+    "ShortDescription": "DP-TIM-Z5-2 | шприц, 3 г, 4.5 Вт/мК",
+    "ThermalConductivity": 4.5,
+    "Volume": 3.0
+  },
+  {
+    "Name": "Термопаста Thermalright TF8",
+    "Manufacturer": "Unknown",
+    "Price": 3899,
+    "ImageUrl": "",
+    "ShortDescription": "TF8 12.8 | шприц, 12.8 г, 13.8 Вт/мК",
+    "ThermalConductivity": 13.8,
+    "Volume": 12.8
+  },
+  {
+    "Name": "Термопаста Thermalright TFX",
+    "Manufacturer": "Unknown",
+    "Price": 899,
+    "ImageUrl": "",
+    "ShortDescription": "TFX 2 | шприц, 2 г, 14.3 Вт/мК",
+    "ThermalConductivity": 14.3,
+    "Volume": 2.0
+  },
+  {
+    "Name": "Термопаста ID-COOLING FROST X45",
+    "Manufacturer": "Unknown",
+    "Price": 499,
+    "ImageUrl": "",
+    "ShortDescription": "шприц, 2 г, 15.2 Вт/мК",
+    "ThermalConductivity": 15.2,
+    "Volume": 2.0
+  },
+  {
+    "Name": "Термопаста DEEPCOOL Z3",
+    "Manufacturer": "Unknown",
+    "Price": 199,
+    "ImageUrl": "",
+    "ShortDescription": "DP-TIM-Z3-2 | шприц, 1.5 г, 3.5 Вт/мК",
+    "ThermalConductivity": 3.5,
+    "Volume": 1.5
+  },
+  {
+    "Name": "Термопаста ID-COOLING FROST X25",
+    "Manufacturer": "Unknown",
+    "Price": 499,
+    "ImageUrl": "",
+    "ShortDescription": "шприц, 4 г, 10.5 Вт/мК",
+    "ThermalConductivity": 10.5,
+    "Volume": 4.0
+  },
+  {
+    "Name": "Термопаста Thermalright TFX",
+    "Manufacturer": "Unknown",
+    "Price": 3199,
+    "ImageUrl": "./thermalpaste2_files/b47e2bd1a61ee8c258b76cf8f667709100c974df19b2d0c56367d448287c1c51.jpg",
+    "ShortDescription": "TFX 6.2 | шприц, 6.2 г, 14.3 Вт/мК",
+    "ThermalConductivity": 14.3,
+    "Volume": 6.2
+  },
+  {
+    "Name": "Термопаста DEEPCOOL Z10",
+    "Manufacturer": "Unknown",
+    "Price": 499,
+    "ImageUrl": "./thermalpaste2_files/e5880018df3bc7d03852a33c7f51959147203fad2e7b5f60e3ac8fd2edd6de46.jpg",
+    "ShortDescription": "DP-TIM-Z10-1 | шприц, 5 г, 6.5 Вт/мК",
+    "ThermalConductivity": 6.5,
+    "Volume": 5.0
+  },
+  {
+    "Name": "Термопаста Arctic Cooling MX-2 (2019)",
+    "Manufacturer": "Unknown",
+    "Price": 180,
+    "ImageUrl": "./thermalpaste2_files/9684c2b030eeab09a0283eea6fa698b038c0525fb3a462f465575645ec173ad6.jpg",
+    "ShortDescription": "ACTCP00005B | шприц, 4 г, 5.6 Вт/мК",
+    "ThermalConductivity": 5.6,
+    "Volume": 4.0
+  },
+  {
+    "Name": "Термопаста ARDOR GAMING FROSTBURN AG131",
+    "Manufacturer": "Unknown",
+    "Price": 399,
+    "ImageUrl": "./thermalpaste2_files/a94af18a3b480f7bc3f7b1c8e68e8bbddaaaaa9c1c1047b52a4a3b7165c2ae05.jpg",
+    "ShortDescription": "шприц, 1.5 г, 13.4 Вт/мК",
+    "ThermalConductivity": 13.4,
+    "Volume": 1.5
+  },
+  {
+    "Name": "Термопаста STEEL",
+    "Manufacturer": "Unknown",
+    "Price": 99,
+    "ImageUrl": "./thermalpaste2_files/20843957d1935a66f30c74a293050625ba04b63505f25dfebc682593128e9c45.jpg",
+    "ShortDescription": "STP-С | шприц, 3 г, 5.4 Вт/мК",
+    "ThermalConductivity": 5.4,
+    "Volume": 3.0
+  },
+  {
+    "Name": "Термопаста ASUS ROG RG-07 KIT",
+    "Manufacturer": "Unknown",
+    "Price": 2350,
+    "ImageUrl": "./thermalpaste2_files/1739a1d154bf2ecfe2c085597e200d16be9e6d2c4ad83597367c54c183c78b66.jpg",
+    "ShortDescription": "90RC00R0-B0UAY0 | шприц, 3 г",
+    "ThermalConductivity": 0.0,
+    "Volume": 3.0
+  },
+  {
+    "Name": "Термопаста ASUS ROG RG-07",
+    "Manufacturer": "Unknown",
+    "Price": 799,
+    "ImageUrl": "./thermalpaste2_files/34d6dbea5e8885c48757c78b5fecbf6b9f49eb3463e419dc2c091fe2b9e09a51.jpg",
+    "ShortDescription": "90RC00R1-B0UAY0 | шприц, 3 г",
+    "ThermalConductivity": 0.0,
+    "Volume": 3.0
+  },
+  {
+    "Name": "Термопаста Arctic Cooling MX-6",
+    "Manufacturer": "Unknown",
+    "Price": 499,
+    "ImageUrl": "./thermalpaste2_files/333d3ad5a57a15b447768962484deaf501336c110f1689ebe3cd5604c0b387e6.jpg",
+    "ShortDescription": "ACTCP00079A | шприц, 2 г, 8 Вт/мК",
+    "ThermalConductivity": 8.0,
+    "Volume": 2.0
+  },
+  {
+    "Name": "Термопаста Formula AB ZERO EX",
+    "Manufacturer": "Unknown",
+    "Price": 750,
+    "ImageUrl": "./thermalpaste2_files/98ab5a07e3c380fbcea24ac0eab5cfa55507fe4c38a9f9f2dde0545c4c13de82.jpg",
+    "ShortDescription": "AB ZERO EX 2G | шприц, 2 г, 13.5 Вт/мК",
+    "ThermalConductivity": 13.5,
+    "Volume": 2.0
+  },
+  {
+    "Name": "Очиститель для снятия термопасты STEEL Frost Cleaner Pro DS-1",
+    "Manufacturer": "Unknown",
+    "Price": 350,
+    "ImageUrl": "./thermalpaste2_files/bc407cdc5512a99251eae5a1aa51a5c851e6bb14a70a68b29e77c501b4095756.jpg",
+    "ShortDescription": "DS-1 | 47 г",
+    "ThermalConductivity": 0.0,
+    "Volume": 47.0
+  },
+  {
+    "Name": "Термопаста STEEL КПТ-8",
+    "Manufacturer": "Unknown",
+    "Price": 70,
+    "ImageUrl": "./thermalpaste2_files/e4b78e73e3e6f9d8aff8386b60b3057f9bb8b55411bad9ea4511b71f8a4623fd.jpg",
+    "ShortDescription": "КПТ-8_1.5гр | шприц, 1.5 г, 0.7 Вт/мК",
+    "ThermalConductivity": 0.7,
+    "Volume": 1.5
+  },
+  {
+    "Name": "Термопаста Evercool Nano Diamond",
+    "Manufacturer": "Unknown",
+    "Price": 399,
+    "ImageUrl": "./thermalpaste2_files/f8256c496af380c5f458e22172643c13c699eda06746d4101efee6b0caac2a70.jpg",
+    "ShortDescription": "TC-H04 | шприц, 3 г, 15.6 Вт/мК",
+    "ThermalConductivity": 15.6,
+    "Volume": 3.0
+  },
+  {
+    "Name": "Термопаста ID-COOLING FROST X25",
+    "Manufacturer": "Unknown",
+    "Price": 299,
+    "ImageUrl": "./thermalpaste2_files/132df76bec1e4533b93091566d440bc701687e6fdbcd35566144a7027431806f.jpg",
+    "ShortDescription": "шприц, 1 г, 10.5 Вт/мК",
+    "ThermalConductivity": 10.5,
+    "Volume": 1.0
+  },
+  {
+    "Name": "Термопаста ARDOR GAMING FROSTBURN AG134",
+    "Manufacturer": "Unknown",
+    "Price": 999,
+    "ImageUrl": "./thermalpaste2_files/9c43facc059a33c3fe1179a2c54535b40daddcbe76d2c7257f58a154a18b160b.jpg",
+    "ShortDescription": "шприц, 4 г, 13.4 Вт/мК",
+    "ThermalConductivity": 13.4,
+    "Volume": 4.0
+  },
+  {
+    "Name": "Термопаста ZALMAN ZM-STC8",
+    "Manufacturer": "Unknown",
+    "Price": 320,
+    "ImageUrl": "./thermalpaste2_files/87eee3b32517fb38c72767d78e8fcf839a7284b9e09e7ef6263cd3054b01476e.jpg",
+    "ShortDescription": "шприц, 1.5 г, 8.3 Вт/мК",
+    "ThermalConductivity": 8.3,
+    "Volume": 1.5
+  },
+  {
+    "Name": "Термопаста ID-COOLING FROST X05",
+    "Manufacturer": "Unknown",
+    "Price": 299,
+    "ImageUrl": "./thermalpaste2_files/36825b2c7df7eaf9c1030c575a9a7c7d2c80ced38a33b518366d92a8bc508dc2.jpg",
+    "ShortDescription": "шприц, 5 г, 6.5 Вт/мК",
+    "ThermalConductivity": 6.5,
+    "Volume": 5.0
+  },
+  {
+    "Name": "Термопаста ZALMAN ZM-STС10",
+    "Manufacturer": "Unknown",
+    "Price": 399,
+    "ImageUrl": "./thermalpaste2_files/6e0c79adc3cecb0f65500d18ee71891622247f305ea0df48a3f7f7cc6e149519.jpg",
+    "ShortDescription": "шприц, 2 г, 11.5 Вт/мК",
+    "ThermalConductivity": 11.5,
+    "Volume": 2.0
+  },
+  {
+    "Name": "Термопаста ARDOR GAMING FROSTBURN AG132",
+    "Manufacturer": "Unknown",
+    "Price": 499,
+    "ImageUrl": "./thermalpaste2_files/d62719ff8d0f47f7b356fa1bbb6f077560151b75e9dfb5128ea3468461e9faf9.jpg",
+    "ShortDescription": "шприц, 2 г, 13.4 Вт/мК",
+    "ThermalConductivity": 13.4,
+    "Volume": 2.0
+  }
+]

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using PCConfigurator.api.Data;
 using PCConfigurator.API.Data;
 using PCConfigurator.API.Models;
 
@@ -51,6 +52,7 @@ builder.Services.AddCors(options =>
         });
 });
 
+
 // Controllers è Swagger
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -63,6 +65,12 @@ using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
     await DbInitializer.SeedRolesAndAdminAsync(services);
+}
+
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    DatabaseSeeder.Seed(context);
 }
 
 if (app.Environment.IsDevelopment())

@@ -229,10 +229,83 @@ namespace PCConfigurator.api.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<float>("BaseFrequency")
+                        .HasColumnType("real");
+
+                    b.Property<float>("BoostFrequency")
+                        .HasColumnType("real");
+
                     b.Property<int>("Cores")
                         .HasColumnType("integer");
 
-                    b.Property<float>("Frequency")
+                    b.Property<string>("ImageUrl")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("IntegratedGraphics")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Manufacturer")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<decimal>("Price")
+                        .HasColumnType("numeric");
+
+                    b.Property<string>("ShortDescription")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Socket")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("TDP")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Threads")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("CPUs");
+                });
+
+            modelBuilder.Entity("PCConfigurator.API.Models.Case", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("FanSupport")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("FormFactor")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("HasRGB")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("ImageUrl")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Manufacturer")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<float>("MaxCPUCoolerHeight")
+                        .HasColumnType("real");
+
+                    b.Property<float>("MaxGPULength")
                         .HasColumnType("real");
 
                     b.Property<string>("Name")
@@ -242,9 +315,13 @@ namespace PCConfigurator.api.Migrations
                     b.Property<decimal>("Price")
                         .HasColumnType("numeric");
 
+                    b.Property<string>("ShortDescription")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.HasKey("Id");
 
-                    b.ToTable("CPUs");
+                    b.ToTable("Cases");
                 });
 
             modelBuilder.Entity("PCConfigurator.API.Models.GPU", b =>
@@ -255,7 +332,123 @@ namespace PCConfigurator.api.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<int>("MemoryGB")
+                    b.Property<string>("ImageUrl")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<float>("Length")
+                        .HasColumnType("real");
+
+                    b.Property<string>("Manufacturer")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("MemorySize")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("MemoryType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("PowerConnector")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("PowerConsumption")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("Price")
+                        .HasColumnType("numeric");
+
+                    b.Property<string>("ShortDescription")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("GPUs");
+                });
+
+            modelBuilder.Entity("PCConfigurator.API.Models.HDD", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("Cache")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Capacity")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ImageUrl")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Interface")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Manufacturer")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<decimal>("Price")
+                        .HasColumnType("numeric");
+
+                    b.Property<int>("RPM")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ShortDescription")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("HDDs");
+                });
+
+            modelBuilder.Entity("PCConfigurator.API.Models.Motherboard", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Chipset")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("FormFactor")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("HasM2")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("HasPCIe5")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("ImageUrl")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Manufacturer")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("MaxRAM")
                         .HasColumnType("integer");
 
                     b.Property<string>("Name")
@@ -265,9 +458,70 @@ namespace PCConfigurator.api.Migrations
                     b.Property<decimal>("Price")
                         .HasColumnType("numeric");
 
+                    b.Property<int>("RAMSlots")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("RAMType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ShortDescription")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Socket")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.HasKey("Id");
 
-                    b.ToTable("GPUs");
+                    b.ToTable("Motherboards");
+                });
+
+            modelBuilder.Entity("PCConfigurator.API.Models.PSU", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Efficiency")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("FormFactor")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ImageUrl")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Manufacturer")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("Modular")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Power")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("Price")
+                        .HasColumnType("numeric");
+
+                    b.Property<string>("ShortDescription")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("PSUs");
                 });
 
             modelBuilder.Entity("PCConfigurator.API.Models.RAM", b =>
@@ -278,10 +532,21 @@ namespace PCConfigurator.api.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<int>("Capacity")
+                        .HasColumnType("integer");
+
                     b.Property<int>("Frequency")
                         .HasColumnType("integer");
 
-                    b.Property<int>("MemoryGB")
+                    b.Property<string>("ImageUrl")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Manufacturer")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Modules")
                         .HasColumnType("integer");
 
                     b.Property<string>("Name")
@@ -291,7 +556,11 @@ namespace PCConfigurator.api.Migrations
                     b.Property<decimal>("Price")
                         .HasColumnType("numeric");
 
-                    b.Property<string>("TypeDDR")
+                    b.Property<string>("ShortDescription")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Type")
                         .IsRequired()
                         .HasColumnType("text");
 
@@ -300,40 +569,32 @@ namespace PCConfigurator.api.Migrations
                     b.ToTable("RAMs");
                 });
 
-            modelBuilder.Entity("PCConfigurator.api.Models.Case", b =>
+            modelBuilder.Entity("PCConfigurator.API.Models.SSD", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("Capacity")
+                        .HasColumnType("integer");
 
                     b.Property<string>("FormFactor")
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("Name")
+                    b.Property<string>("ImageUrl")
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<decimal>("Price")
-                        .HasColumnType("numeric");
+                    b.Property<string>("Interface")
+                        .IsRequired()
+                        .HasColumnType("text");
 
-                    b.HasKey("Id");
-
-                    b.ToTable("Cases");
-                });
-
-            modelBuilder.Entity("PCConfigurator.api.Models.HDD", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("CapacityGB")
-                        .HasColumnType("integer");
+                    b.Property<string>("Manufacturer")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -342,12 +603,22 @@ namespace PCConfigurator.api.Migrations
                     b.Property<decimal>("Price")
                         .HasColumnType("numeric");
 
+                    b.Property<int>("ReadSpeed")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ShortDescription")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("WriteSpeed")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
 
-                    b.ToTable("HDDs");
+                    b.ToTable("SSDs");
                 });
 
-            modelBuilder.Entity("PCConfigurator.api.Models.Motherboard", b =>
+            modelBuilder.Entity("PCConfigurator.API.Models.ThermalPaste", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -355,22 +626,34 @@ namespace PCConfigurator.api.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<int>("Cores")
-                        .HasColumnType("integer");
+                    b.Property<string>("ImageUrl")
+                        .IsRequired()
+                        .HasColumnType("text");
 
-                    b.Property<float>("Frequency")
+                    b.Property<string>("Manufacturer")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<decimal>("Price")
+                        .HasColumnType("numeric");
+
+                    b.Property<string>("ShortDescription")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<float>("ThermalConductivity")
                         .HasColumnType("real");
 
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<decimal>("Price")
-                        .HasColumnType("numeric");
+                    b.Property<float>("Volume")
+                        .HasColumnType("real");
 
                     b.HasKey("Id");
 
-                    b.ToTable("Motherboards");
+                    b.ToTable("ThermalPastes");
                 });
 
             modelBuilder.Entity("PCConfigurator.api.Models.PCBuild", b =>
@@ -438,75 +721,6 @@ namespace PCConfigurator.api.Migrations
                     b.ToTable("PCBuilds");
                 });
 
-            modelBuilder.Entity("PCConfigurator.api.Models.PSU", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<decimal>("Price")
-                        .HasColumnType("numeric");
-
-                    b.Property<int>("Wattage")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("PSUs");
-                });
-
-            modelBuilder.Entity("PCConfigurator.api.Models.SSD", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("CapacityGB")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<decimal>("Price")
-                        .HasColumnType("numeric");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("SSDs");
-                });
-
-            modelBuilder.Entity("PCConfigurator.api.Models.ThermalPaste", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<decimal>("Price")
-                        .HasColumnType("numeric");
-
-                    b.Property<decimal>("VolumeML")
-                        .HasColumnType("numeric");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("ThermalPastes");
-                });
-
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
                 {
                     b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole", null)
@@ -564,7 +778,7 @@ namespace PCConfigurator.api.Migrations
                         .WithMany()
                         .HasForeignKey("CPUId");
 
-                    b.HasOne("PCConfigurator.api.Models.Case", "Case")
+                    b.HasOne("PCConfigurator.API.Models.Case", "Case")
                         .WithMany()
                         .HasForeignKey("CaseId");
 
@@ -572,15 +786,15 @@ namespace PCConfigurator.api.Migrations
                         .WithMany()
                         .HasForeignKey("GPUId");
 
-                    b.HasOne("PCConfigurator.api.Models.HDD", "HDD")
+                    b.HasOne("PCConfigurator.API.Models.HDD", "HDD")
                         .WithMany()
                         .HasForeignKey("HDDId");
 
-                    b.HasOne("PCConfigurator.api.Models.Motherboard", "Motherboard")
+                    b.HasOne("PCConfigurator.API.Models.Motherboard", "Motherboard")
                         .WithMany()
                         .HasForeignKey("MotherboardId");
 
-                    b.HasOne("PCConfigurator.api.Models.PSU", "PSU")
+                    b.HasOne("PCConfigurator.API.Models.PSU", "PSU")
                         .WithMany()
                         .HasForeignKey("PSUId");
 
@@ -588,11 +802,11 @@ namespace PCConfigurator.api.Migrations
                         .WithMany()
                         .HasForeignKey("RAMId");
 
-                    b.HasOne("PCConfigurator.api.Models.SSD", "SSD")
+                    b.HasOne("PCConfigurator.API.Models.SSD", "SSD")
                         .WithMany()
                         .HasForeignKey("SSDId");
 
-                    b.HasOne("PCConfigurator.api.Models.ThermalPaste", "ThermalPaste")
+                    b.HasOne("PCConfigurator.API.Models.ThermalPaste", "ThermalPaste")
                         .WithMany()
                         .HasForeignKey("ThermalPasteId");
 

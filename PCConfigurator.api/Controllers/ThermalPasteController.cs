@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PCConfigurator.api.Models;
 using PCConfigurator.API.Data;
+using PCConfigurator.API.Models;
 
 namespace PCConfigurator.api.Controllers
 {
