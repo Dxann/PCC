@@ -17,7 +17,7 @@ function Header() {
 
   return (
     <div className="header">
-      <div className="logo">PCConfigure</div>
+      <Link to="/" className="logo">PCConfigure</Link>
 
       <div className="nav-links">
         <Link to="/">Главная</Link>

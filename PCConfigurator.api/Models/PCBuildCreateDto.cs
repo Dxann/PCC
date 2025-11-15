@@ -12,5 +12,6 @@ namespace PCConfigurator.API.Models.DTO
 		public int? PSUId { get; set; }
 		public int? CaseId { get; set; }
 		public int? ThermalPasteId { get; set; }
-	}
+
+    }
 }

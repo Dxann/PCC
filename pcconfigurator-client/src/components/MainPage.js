@@ -31,26 +31,38 @@ export default function MainPage() {
     }
 
     const payload = {
-      name: buildName || `Сборка ${new Date().toLocaleString()}`,
-      cpuId: build.CPU?.id || null,
-      gpuId: build.GPU?.id || null,
-      ramId: build.RAM?.id || null,
-      motherboardId: build.Motherboard?.id || null,
-      ssdId: build.SSD?.id || null,
-      hddId: build.HDD?.id || null,
-      psuId: build.PSU?.id || null,
-      caseId: build.Case?.id || null,
-      thermalPasteId: build.ThermalPaste?.id || null,
+      Name: buildName || `Сборка ${new Date().toLocaleString()}`,
+      CPUId: build.CPU?.id || null,
+      GPUId: build.GPU?.id || null,
+      RAMId: build.RAM?.id || null,
+      MotherboardId: build.Motherboard?.id || null,
+      SSDId: build.SSD?.id || null,
+      HDDId: build.HDD?.id || null,
+      PSUId: build.PSU?.id || null,
+      CaseId: build.Case?.id || null,
+      ThermalPasteId: build.ThermalPaste?.id || null,
     };
 
     try {
-      await axios.post("https://localhost:7200/api/PCBuild/save", payload);
+      const token = localStorage.getItem("token");
+
+      await axios.post(
+        "https://localhost:7200/api/PCBuild/save",
+        payload,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
       setSaveMessage("Сборка успешно сохранена!");
     } catch (err) {
       setSaveMessage("Ошибка при сохранении");
       console.error(err);
     }
   };
+
 
   const handleSaveClick = () => {
 

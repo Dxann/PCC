@@ -25,6 +25,8 @@ namespace PCConfigurator.API.Data
         public DbSet<ThermalPaste> ThermalPastes => Set<ThermalPaste>();
         public DbSet<Case> Cases => Set<Case>();
         public DbSet<PCBuild> PCBuilds => Set<PCBuild>();
+        public DbSet<PCBuildLike> PCBuildLikes { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder builder)
         {

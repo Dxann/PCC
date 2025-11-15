@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PCConfigurator.api.Models;
 using PCConfigurator.API.Data;
@@ -6,6 +8,7 @@ using PCConfigurator.API.Models.DTO;
 
 namespace PCConfigurator.api.Controllers
 {
+    [Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class PCBuildController : ControllerBase
@@ -31,10 +34,34 @@ namespace PCConfigurator.api.Controllers
                 .Include(b => b.PSU)
                 .Include(b => b.Case)
                 .Include(b => b.ThermalPaste)
+                .Include(b => b.User)
                 .ToListAsync();
 
-            return Ok(builds);
+            var likes = await _context.PCBuildLikes.ToListAsync();
+
+            var result = builds.Select(b => new PCBuildDto
+            {
+                Id = b.Id,
+                Name = b.Name,
+                TotalPrice = b.TotalPrice,
+                CPU = b.CPU,
+                GPU = b.GPU,
+                RAM = b.RAM,
+                Motherboard = b.Motherboard,
+                SSD = b.SSD,
+                HDD = b.HDD,
+                PSU = b.PSU,
+                Case = b.Case,
+                ThermalPaste = b.ThermalPaste,
+                UserName = b.User?.UserName ?? "Unknown",
+                CreatedAt = b.CreatedAt,
+                UserId = b.UserId,
+                Likes = likes.Count(l => l.BuildId == b.Id)
+            });
+
+            return Ok(result);
         }
+
 
         // Получить сборку по Id
         [HttpGet("{id}")]
@@ -94,7 +121,9 @@ namespace PCConfigurator.api.Controllers
                 PSUId = dto.PSUId,
                 CaseId = dto.CaseId,
                 ThermalPasteId = dto.ThermalPasteId,
-                TotalPrice = total
+                TotalPrice = total,
+
+                UserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
             };
 
             _context.PCBuilds.Add(build);
