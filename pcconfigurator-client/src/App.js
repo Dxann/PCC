@@ -7,6 +7,7 @@ import AdminPanel from "./components/AdminPanel";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Login from "./components/Login";
 import Register from "./components/Register";
+import ChatBot from "./components/ChatBot";
 
 function Home() {
   return <MainPage />;
@@ -20,9 +21,6 @@ function Guides() {
   return <h2>Здесь будут гайды</h2>;
 }
 
-function ChatBot() {
-  return <h2>Здесь будет GIGACHAT</h2>;
-}
 
 function App() {
   return (

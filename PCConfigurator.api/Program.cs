@@ -9,16 +9,13 @@ using PCConfigurator.API.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// DbContext сначала
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// Identity после DbContext
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
     .AddEntityFrameworkStores<ApplicationDbContext>()
     .AddDefaultTokenProviders();
 
-// JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"];
 var key = Encoding.ASCII.GetBytes(jwtKey);
 
@@ -40,27 +37,38 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-// CORS
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowReactApp",
-        policy =>
-        {
-            policy.WithOrigins("http://localhost:3000")
-                  .AllowAnyHeader()
-                  .AllowAnyMethod();
-        });
+    options.AddPolicy("ReactPolicy", policy =>
+    {
+        policy.WithOrigins("http://localhost:3000", "https://localhost:3000")
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials(); 
+    });
 });
 
+builder.Services.AddHttpClient<GigaChatAuthService>()
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+    {
+        ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true
+    });
 
-// Controllers и Swagger
+builder.Services.AddHttpClient<GigaChatService>()
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+    {
+        ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true
+    });
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+builder.Services.AddHttpClient<GigaChatAuthService>();
+builder.Services.AddHttpClient<GigaChatService>();
+
 var app = builder.Build();
 
-// Инициализация ролей и админа
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
@@ -79,9 +87,10 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseCors("AllowReactApp");
-app.UseHttpsRedirection();
+app.UseRouting();
+app.UseCors("ReactPolicy");
 
+app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 
