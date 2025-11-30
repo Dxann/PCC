@@ -10,7 +10,7 @@ export default function MBForm({ onAdded }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const res = await axios.post("https://localhost:7200/api/Motherboard", {
+      const res = await axios.post("http://localhost:8080/api/Motherboard", {
         name,
         cores: parseInt(cores),
         frequency: parseInt(frequency),

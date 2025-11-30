@@ -9,8 +9,8 @@ export default function PCBuilder() {
   const [buildName, setBuildName] = useState("");
 
   useEffect(() => {
-    axios.get("https://localhost:7200/api/cpu").then(res => setCpus(res.data));
-    axios.get("https://localhost:7200/api/gpu").then(res => setGpus(res.data));
+    axios.get("http://localhost:8080/api/cpu").then(res => setCpus(res.data));
+    axios.get("http://localhost:8080/api/gpu").then(res => setGpus(res.data));
   }, []);
 
   const totalPrice = (selectedCPU?.price || 0) + (selectedGPU?.price || 0);
@@ -18,7 +18,7 @@ export default function PCBuilder() {
   const saveBuild = async () => {
     if (!selectedCPU || !selectedGPU || !buildName) return alert("Выберите всё и укажите имя сборки");
 
-    await axios.post("https://localhost:7200/api/PCBuild", {
+    await axios.post("http://localhost:8080/api/PCBuild", {
       CPUId: selectedCPU.id,
       GPUId: selectedGPU.id,
       Name: buildName,

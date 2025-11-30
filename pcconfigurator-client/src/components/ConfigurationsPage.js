@@ -66,7 +66,7 @@ export default function ConfigurationsPage() {
   const loadBuilds = async () => {
     try {
       const token = localStorage.getItem("token");
-      const response = await axios.get("https://localhost:7200/api/PCBuild", {
+      const response = await axios.get("http://localhost:8080/api/PCBuild", {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -81,7 +81,7 @@ export default function ConfigurationsPage() {
   const loadMyLikes = async () => {
     try {
       const token = localStorage.getItem("token");
-      const response = await axios.get("https://localhost:7200/api/PCBuildLike/my", {
+      const response = await axios.get("http://localhost:8080/api/PCBuildLike/my", {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -96,7 +96,7 @@ export default function ConfigurationsPage() {
     try {
       const token = localStorage.getItem("token");
       const response = await axios.post(
-        `https://localhost:7200/api/PCBuildLike/${buildId}`,
+        `http://localhost:8080/api/PCBuildLike/${buildId}`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );

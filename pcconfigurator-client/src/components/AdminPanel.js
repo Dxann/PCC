@@ -43,15 +43,15 @@ export default function AdminPanel() {
         caseRes,
         thermalRes,
       ] = await Promise.all([
-        axios.get("https://localhost:7200/api/CPU", { headers }),
-        axios.get("https://localhost:7200/api/GPU", { headers }),
-        axios.get("https://localhost:7200/api/RAM", { headers }),
-        axios.get("https://localhost:7200/api/SSD", { headers }),
-        axios.get("https://localhost:7200/api/HDD", { headers }),
-        axios.get("https://localhost:7200/api/PSU", { headers }),
-        axios.get("https://localhost:7200/api/Motherboard", { headers }),
-        axios.get("https://localhost:7200/api/Case", { headers }),
-        axios.get("https://localhost:7200/api/ThermalPaste", { headers }),
+        axios.get("http://localhost:8080/api/CPU", { headers }),
+        axios.get("http://localhost:8080/api/GPU", { headers }),
+        axios.get("http://localhost:8080/api/RAM", { headers }),
+        axios.get("http://localhost:8080/api/SSD", { headers }),
+        axios.get("http://localhost:8080/api/HDD", { headers }),
+        axios.get("http://localhost:8080/api/PSU", { headers }),
+        axios.get("http://localhost:8080/api/Motherboard", { headers }),
+        axios.get("http://localhost:8080/api/Case", { headers }),
+        axios.get("http://localhost:8080/api/ThermalPaste", { headers }),
       ]);
 
       setCpus(cpuRes.data);

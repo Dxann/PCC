@@ -47,7 +47,7 @@ export default function MainPage() {
       const token = localStorage.getItem("token");
 
       await axios.post(
-        "https://localhost:7200/api/PCBuild/save",
+        "http://localhost:8080/api/PCBuild/save",
         payload,
         {
           headers: {
@@ -126,7 +126,7 @@ export default function MainPage() {
   useEffect(() => {
     if (!selectedCategory) return;
     axios
-      .get(`https://localhost:7200/api/${selectedCategory}`)
+      .get(`http://localhost:8080/api/${selectedCategory}`)
       .then(res => setItems(res.data))
       .catch(err => console.error("Ошибка:", err));
   }, [selectedCategory]);

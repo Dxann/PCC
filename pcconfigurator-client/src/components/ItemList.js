@@ -3,7 +3,7 @@ import axios from 'axios';
 
 function ItemList({ items, refresh }) {
     const handleDelete = async (id) => {
-        await axios.delete(`https://localhost:7200/api/CPU/${id}`);
+        await axios.delete(`http://localhost:8080/api/CPU/${id}`);
         refresh();
     };
 

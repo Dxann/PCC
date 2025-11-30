@@ -19,7 +19,7 @@ export default function Register() {
     }
 
     try {
-      const res = await axios.post("https://localhost:7200/api/Auth/register", {
+      const res = await axios.post("http://localhost:8080/api/Auth/register", {
         username,
         email,
         password,

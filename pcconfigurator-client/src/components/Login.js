@@ -14,7 +14,7 @@ export default function Login() {
     setMessage("");
 
     try {
-      const res = await axios.post("https://localhost:7200/api/Auth/login", {
+      const res = await axios.post("http://localhost:8080/api/Auth/login", {
         username,
         password,
       });

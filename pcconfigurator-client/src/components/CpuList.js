@@ -5,7 +5,7 @@ function CpuList() {
   const [cpus, setCpus] = useState([]);
 
   useEffect(() => {
-    axios.get('https://localhost:5001/api/cpus')
+    axios.get('http://localhost:5001/api/cpus')
       .then(response => setCpus(response.data))
       .catch(error => console.error('Ошибка при получении данных:', error));
   }, []);

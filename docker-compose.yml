@@ -1,0 +1,40 @@
+version: "3.9"
+
+services:
+
+  postgres:
+    image: postgres:15
+    container_name: pcconfigurator_postgres
+    restart: always
+    environment:
+      POSTGRES_DB: pcc_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  api:
+    build: ./PCConfigurator.api
+    container_name: pcconfigurator_api
+    depends_on:
+      - postgres
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Development"
+      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=pcc_db;Username=postgres;Password=postgres"
+    ports:
+      - "8080:8080"
+    restart: always
+
+  client:
+    build: ./pcconfigurator-client
+    container_name: pcconfigurator_client
+    depends_on:
+      - api
+    ports:
+      - "3000:80"
+    restart: always
+
+volumes:
+  pgdata:

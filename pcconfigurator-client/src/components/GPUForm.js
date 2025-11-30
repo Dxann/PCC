@@ -9,7 +9,7 @@ export default function GPUForm({ onAdded }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const res = await axios.post("https://localhost:7200/api/GPU", {
+      const res = await axios.post("http://localhost:8080/api/GPU", {
         name,
         memorygb: parseInt(memorygb),
         price: parseFloat(price),

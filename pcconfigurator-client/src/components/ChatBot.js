@@ -54,7 +54,7 @@ function ChatBot() {
     setQuestion("");
 
     try {
-      const res = await fetch("https://localhost:7200/api/ChatBot", {
+      const res = await fetch("http://localhost:8080/api/ChatBot", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

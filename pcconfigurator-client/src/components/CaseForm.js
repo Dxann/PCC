@@ -9,7 +9,7 @@ export default function CaseForm({ onAdded }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const res = await axios.post("https://localhost:7200/api/Case", {
+      const res = await axios.post("http://localhost:8080/api/Case", {
         name,
         formfactor: formfactor,
         price: parseFloat(price),

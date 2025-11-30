@@ -9,7 +9,7 @@ export default function ThermalPasteForm({ onAdded }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const res = await axios.post("https://localhost:7200/api/ThermalPaste", {
+      const res = await axios.post("http://localhost:8080/api/ThermalPaste", {
         name,
         volumeml: parseFloat(volumeml),
         price: parseFloat(price),
