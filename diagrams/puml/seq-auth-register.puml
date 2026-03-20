@@ -1,0 +1,22 @@
+@startuml
+
+actor "Пользователь" as U
+participant "Frontend" as Client
+participant "API" as API
+participant "Backend" as Identity
+
+U -> Client: вводит username/email/password
+Client -> API: передаёт данные для регистрации
+API -> Identity: создать пользователя
+Identity --> API: ok / fail
+alt user exists
+  API --> Client: ошибка: пользователь уже существует
+  Client --> U: сообщение "пользователь уже существует"
+else success
+  API -> Identity: назначить роль "User"
+  Identity --> API: ok
+  API --> Client: регистрация успешна
+  Client --> U: сообщение "регистрация успешна"
+end
+
+@enduml

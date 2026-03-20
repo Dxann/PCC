@@ -1,0 +1,47 @@
+@startuml
+
+left to right direction
+skinparam actorStyle stickman
+skinparam usecase {
+  BackgroundColor LightYellow
+  BorderColor Black
+}
+skinparam packageStyle rectangle
+
+actor "Пользователь" as User
+actor "Администратор" as Admin
+
+rectangle {
+  usecase "Зарегистрироваться | Войти" as UC1
+  usecase "Просмотреть каталог компонентов" as UC3
+  usecase "Собрать конфигурацию ПК" as UC4
+  usecase "Проверить совместимость компонентов" as UC5
+  usecase "Сохранить сборку" as UC6
+  usecase "Загрузить свои сборки" as UC7
+  usecase "Загрузить все сборки" as UC8
+  usecase "Поставить или убрать лайк" as UC9
+  usecase "Просмотреть лайкнутые сборки" as UC10
+  usecase "Задать вопрос чат-боту" as UC11
+  usecase "Добавить компонент" as UC12
+  usecase "Редактировать компонент" as UC13
+  usecase "Удалить компонент" as UC14
+  usecase "Управлять пользователями" as UC15
+}
+
+User --> UC1
+User --> UC3
+User --> UC4
+User --> UC5
+User --> UC6
+User --> UC7
+User --> UC8
+User --> UC9
+User --> UC10
+User --> UC11
+
+Admin --> UC12
+Admin --> UC13
+Admin --> UC14
+Admin --> UC15
+
+@enduml

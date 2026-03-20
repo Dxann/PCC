@@ -1,0 +1,5231 @@
+﻿FILE: D:\projects\PCConfigurator.api\PCConfigurator.api\Controllers\AuthController.cs
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.Tokens;
+using PCConfigurator.API.Models;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+
+namespace PCConfigurator.API.Controllers
+{
+    [ApiController]
+    [Route("api/[controller]")]
+    public class AuthController : ControllerBase
+    {
+        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly IConfiguration _configuration;
+
+        public AuthController(UserManager<ApplicationUser> userManager, IConfiguration configuration)
+        {
+            _userManager = userManager;
+            _configuration = configuration;
+        }
+
+        [HttpPost("login")]
+        public async Task<IActionResult> Login([FromBody] LoginModel model)
+        {
+            var user = await _userManager.FindByNameAsync(model.Username);
+
+            if (user != null && await _userManager.CheckPasswordAsync(user, model.Password))
+            {
+   
+                var userRoles = await _userManager.GetRolesAsync(user);
+
+                var authClaims = new List<Claim>
+                {
+                    new Claim(ClaimTypes.Name, user.UserName),
+                    new Claim(ClaimTypes.NameIdentifier, user.Id),
+                    new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+                };
+
+
+                foreach (var role in userRoles)
+                {
+                    authClaims.Add(new Claim(ClaimTypes.Role, role));
+                }
+
+                var jwtKey = _configuration["Jwt:Key"];
+                if (string.IsNullOrEmpty(jwtKey) || jwtKey.Length < 16)
+                {
+                    return StatusCode(500, "JWT ключ слишком короткий. Убедись, что он не менее 16 символов.");
+                }
+
+                var authSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
+
+                var token = new JwtSecurityToken(
+                    issuer: _configuration["Jwt:Issuer"],
+                    audience: _configuration["Jwt:Audience"],
+                    expires: DateTime.Now.AddHours(3),
+                    claims: authClaims,
+                    signingCredentials: new SigningCredentials(authSigningKey, SecurityAlgorithms.HmacSha256)
+                );
+
+                return Ok(new
+                {
+                    token = new JwtSecurityTokenHandler().WriteToken(token),
+                    expiration = token.ValidTo,
+                    username = user.UserName,
+                    roles = userRoles
+                });
+            }
+
+            return Unauthorized();
+        }
+
+
+        [HttpPost("register")]
+        public async Task<IActionResult> Register([FromBody] RegisterModel model)
+        {
+            if (await _userManager.FindByNameAsync(model.Username) != null)
+                return BadRequest("User already exists.");
+
+            var user = new ApplicationUser
+            {
+                UserName = model.Username,
+                Email = model.Email
+            };
+
+            var result = await _userManager.CreateAsync(user, model.Password);
+
+            if (!result.Succeeded)
+            {
+                var errors = string.Join("; ", result.Errors.Select(e => e.Description));
+                return BadRequest(errors);
+            }
+
+
+            await _userManager.AddToRoleAsync(user, "User");
+
+            return Ok(new { message = "Registration successful" });
+
+
+        }
+
+        public class RegisterModel
+        {
+            public string Username { get; set; } = "";
+            public string Email { get; set; } = "";
+            public string Password { get; set; } = "";
+        }
+
+    }
+
+    public class LoginModel
+    {
+        public string Username { get; set; } = "";
+        public string Password { get; set; } = "";
+    }
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\PCConfigurator.api\Controllers\CaseController.cs
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using PCConfigurator.api.Models;
+using PCConfigurator.API.Data;
+using PCConfigurator.API.Models;
+
+namespace PCConfigurator.api.Controllers
+{
+    [ApiController]
+    [Route("api/[controller]")]
+    public class CaseController : ControllerBase
+    {
+        private readonly ApplicationDbContext _context;
+
+        public CaseController(ApplicationDbContext context)
+        {
+            _context = context;
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetAll() => Ok(await _context.Cases.ToListAsync());
+
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetById(int id)
+        {
+            var item = await _context.Cases.FindAsync(id);
+            return item == null ? NotFound() : Ok(item);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Create(Case pcCase)
+        {
+            _context.Cases.Add(pcCase);
+            await _context.SaveChangesAsync();
+            return CreatedAtAction(nameof(GetById), new { id = pcCase.Id }, pcCase);
+        }
+
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Update(int id, Case pcCase)
+        {
+            if (id != pcCase.Id) return BadRequest();
+            _context.Entry(pcCase).State = EntityState.Modified;
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(int id)
+        {
+            var item = await _context.Cases.FindAsync(id);
+            if (item == null) return NotFound();
+            _context.Cases.Remove(item);
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+    }
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\PCConfigurator.api\Controllers\ChatBotController.cs
+using Microsoft.AspNetCore.Mvc;
+
+[ApiController]
+[Route("api/[controller]")]
+public class ChatBotController : ControllerBase
+{
+    private readonly GigaChatService _service;
+
+    public ChatBotController(GigaChatService service)
+    {
+        _service = service;
+    }
+
+    public class ChatRequest
+    {
+        public string Question { get; set; }
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> Ask([FromBody] ChatRequest req)
+    {
+
+        if (string.IsNullOrWhiteSpace(req.Question))
+            return BadRequest(new { error = "Empty question" });
+
+        var answer = await _service.AskAsync(req.Question);
+        return Ok(new { answer });
+    }
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\PCConfigurator.api\Controllers\CPUController.cs
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using PCConfigurator.API.Data;
+using PCConfigurator.API.Models;
+
+namespace PCConfigurator.api.Controllers
+{
+    [ApiController]
+    [Route("api/[controller]")]
+    public class CPUController : ControllerBase
+    {
+        private readonly ApplicationDbContext _context;
+
+        public CPUController(ApplicationDbContext context)
+        {
+            _context = context;
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetAll() => Ok(await _context.CPUs.ToListAsync());
+
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetById(int id)
+        {
+            var cpu = await _context.CPUs.FindAsync(id);
+            return cpu == null ? NotFound() : Ok(cpu);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Create(CPU cpu)
+        {
+            _context.CPUs.Add(cpu);
+            await _context.SaveChangesAsync();
+            return CreatedAtAction(nameof(GetById), new { id = cpu.Id }, cpu);
+        }
+
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Update(int id, CPU cpu)
+        {
+            if (id != cpu.Id) return BadRequest();
+            _context.Entry(cpu).State = EntityState.Modified;
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(int id)
+        {
+            var cpu = await _context.CPUs.FindAsync(id);
+            if (cpu == null) return NotFound();
+            _context.CPUs.Remove(cpu);
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+    }
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\PCConfigurator.api\Controllers\GPUController.cs
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using PCConfigurator.API.Data;
+using PCConfigurator.API.Models;
+
+namespace PCConfigurator.api.Controllers
+{
+    [ApiController]
+    [Route("api/[controller]")]
+    public class GPUController : ControllerBase
+    {
+        private readonly ApplicationDbContext _context;
+
+        public GPUController(ApplicationDbContext context)
+        {
+            _context = context;
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetAll() => Ok(await _context.GPUs.ToListAsync());
+
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetById(int id)
+        {
+            var gpu = await _context.GPUs.FindAsync(id);
+            return gpu == null ? NotFound() : Ok(gpu);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Create(GPU gpu)
+        {
+            _context.GPUs.Add(gpu);
+            await _context.SaveChangesAsync();
+            return CreatedAtAction(nameof(GetById), new { id = gpu.Id }, gpu);
+        }
+
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Update(int id, GPU gpu)
+        {
+            if (id != gpu.Id) return BadRequest();
+            _context.Entry(gpu).State = EntityState.Modified;
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(int id)
+        {
+            var gpu = await _context.GPUs.FindAsync(id);
+            if (gpu == null) return NotFound();
+            _context.GPUs.Remove(gpu);
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+    }
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\PCConfigurator.api\Controllers\HDDController.cs
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using PCConfigurator.api.Models;
+using PCConfigurator.API.Data;
+using PCConfigurator.API.Models;
+
+namespace PCConfigurator.api.Controllers
+{
+    [ApiController]
+    [Route("api/[controller]")]
+    public class HDDController : ControllerBase
+    {
+        private readonly ApplicationDbContext _context;
+
+        public HDDController(ApplicationDbContext context)
+        {
+            _context = context;
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetAll()
+        {
+            var items = await _context.HDDs.ToListAsync();
+            return Ok(items);
+        }
+
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetById(int id)
+        {
+            var item = await _context.HDDs.FindAsync(id);
+            if (item == null) return NotFound();
+            return Ok(item);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Create(HDD HDD)
+        {
+            _context.HDDs.Add(HDD);
+            await _context.SaveChangesAsync();
+            return CreatedAtAction(nameof(GetById), new { id = HDD.Id }, HDD);
+        }
+
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Update(int id, HDD HDD)
+        {
+            if (id != HDD.Id) return BadRequest();
+            _context.Entry(HDD).State = EntityState.Modified;
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(int id)
+        {
+            var item = await _context.HDDs.FindAsync(id);
+            if (item == null) return NotFound();
+            _context.HDDs.Remove(item);
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+    }
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\PCConfigurator.api\Controllers\MOTHERBOARDController.cs
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using PCConfigurator.api.Models;
+using PCConfigurator.API.Data;
+using PCConfigurator.API.Models;
+
+namespace PCConfigurator.api.Controllers
+{
+    [ApiController]
+    [Route("api/[controller]")]
+    public class MotherboardController : ControllerBase
+    {
+        private readonly ApplicationDbContext _context;
+
+        public MotherboardController(ApplicationDbContext context)
+        {
+            _context = context;
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetAll() => Ok(await _context.Motherboards.ToListAsync());
+
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetById(int id)
+        {
+            var item = await _context.Motherboards.FindAsync(id);
+            return item == null ? NotFound() : Ok(item);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Create(Motherboard motherboard)
+        {
+            _context.Motherboards.Add(motherboard);
+            await _context.SaveChangesAsync();
+            return CreatedAtAction(nameof(GetById), new { id = motherboard.Id }, motherboard);
+        }
+
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Update(int id, Motherboard motherboard)
+        {
+            if (id != motherboard.Id) return BadRequest();
+            _context.Entry(motherboard).State = EntityState.Modified;
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(int id)
+        {
+            var item = await _context.Motherboards.FindAsync(id);
+            if (item == null) return NotFound();
+            _context.Motherboards.Remove(item);
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+    }
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\PCConfigurator.api\Controllers\PCBuildController.cs
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using PCConfigurator.api.Models;
+using PCConfigurator.API.Data;
+using PCConfigurator.API.Models.DTO;
+
+namespace PCConfigurator.api.Controllers
+{
+    [Authorize]
+    [ApiController]
+    [Route("api/[controller]")]
+    public class PCBuildController : ControllerBase
+    {
+        private readonly ApplicationDbContext _context;
+
+        public PCBuildController(ApplicationDbContext context)
+        {
+            _context = context;
+        }
+
+        // Получить список всех сборок
+        [HttpGet]
+        public async Task<IActionResult> GetAll()
+        {
+            var builds = await _context.PCBuilds
+                .Include(b => b.CPU)
+                .Include(b => b.GPU)
+                .Include(b => b.RAM)
+                .Include(b => b.Motherboard)
+                .Include(b => b.SSD)
+                .Include(b => b.HDD)
+                .Include(b => b.PSU)
+                .Include(b => b.Case)
+                .Include(b => b.ThermalPaste)
+                .Include(b => b.User)
+                .ToListAsync();
+
+            var likes = await _context.PCBuildLikes.ToListAsync();
+
+            var result = builds.Select(b => new PCBuildDto
+            {
+                Id = b.Id,
+                Name = b.Name,
+                TotalPrice = b.TotalPrice,
+                CPU = b.CPU,
+                GPU = b.GPU,
+                RAM = b.RAM,
+                Motherboard = b.Motherboard,
+                SSD = b.SSD,
+                HDD = b.HDD,
+                PSU = b.PSU,
+                Case = b.Case,
+                ThermalPaste = b.ThermalPaste,
+                UserName = b.User?.UserName ?? "Unknown",
+                CreatedAt = b.CreatedAt,
+                UserId = b.UserId,
+                Likes = likes.Count(l => l.BuildId == b.Id)
+            });
+
+            return Ok(result);
+        }
+
+
+        // Получить сборку по Id
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetById(int id)
+        {
+            var build = await _context.PCBuilds
+                .Include(b => b.CPU)
+                .Include(b => b.GPU)
+                .Include(b => b.RAM)
+                .Include(b => b.Motherboard)
+                .Include(b => b.SSD)
+                .Include(b => b.HDD)
+                .Include(b => b.PSU)
+                .Include(b => b.Case)
+                .Include(b => b.ThermalPaste)
+                .FirstOrDefaultAsync(b => b.Id == id);
+
+            if (build == null) return NotFound();
+            return Ok(build);
+        }
+
+        // Создать сборку (правильный вариант)
+        [HttpPost("save")]
+        public async Task<IActionResult> SaveBuild([FromBody] PCBuildCreateDto dto)
+        {
+            var cpu = dto.CPUId.HasValue ? await _context.CPUs.FindAsync(dto.CPUId) : null;
+            var gpu = dto.GPUId.HasValue ? await _context.GPUs.FindAsync(dto.GPUId) : null;
+            var ram = dto.RAMId.HasValue ? await _context.RAMs.FindAsync(dto.RAMId) : null;
+            var mb = dto.MotherboardId.HasValue ? await _context.Motherboards.FindAsync(dto.MotherboardId) : null;
+            var ssd = dto.SSDId.HasValue ? await _context.SSDs.FindAsync(dto.SSDId) : null;
+            var hdd = dto.HDDId.HasValue ? await _context.HDDs.FindAsync(dto.HDDId) : null;
+            var psu = dto.PSUId.HasValue ? await _context.PSUs.FindAsync(dto.PSUId) : null;
+            var pcCase = dto.CaseId.HasValue ? await _context.Cases.FindAsync(dto.CaseId) : null;
+            var paste = dto.ThermalPasteId.HasValue ? await _context.ThermalPastes.FindAsync(dto.ThermalPasteId) : null;
+
+            // Подсчёт итоговой цены
+            decimal total = 0;
+            total += cpu?.Price ?? 0;
+            total += gpu?.Price ?? 0;
+            total += ram?.Price ?? 0;
+            total += mb?.Price ?? 0;
+            total += ssd?.Price ?? 0;
+            total += hdd?.Price ?? 0;
+            total += psu?.Price ?? 0;
+            total += pcCase?.Price ?? 0;
+            total += paste?.Price ?? 0;
+
+            var build = new PCBuild
+            {
+                Name = dto.Name,
+                CPUId = dto.CPUId,
+                GPUId = dto.GPUId,
+                RAMId = dto.RAMId,
+                MotherboardId = dto.MotherboardId,
+                SSDId = dto.SSDId,
+                HDDId = dto.HDDId,
+                PSUId = dto.PSUId,
+                CaseId = dto.CaseId,
+                ThermalPasteId = dto.ThermalPasteId,
+                TotalPrice = total,
+
+                UserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+            };
+
+            _context.PCBuilds.Add(build);
+            await _context.SaveChangesAsync();
+
+            return Ok(build);
+        }
+
+        // Удаление сборки
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(int id)
+        {
+            var build = await _context.PCBuilds.FindAsync(id);
+            if (build == null) return NotFound();
+
+            _context.PCBuilds.Remove(build);
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+    }
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\PCConfigurator.api\Controllers\PCBuildLikeController.cs
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using PCConfigurator.API.Data;
+using PCConfigurator.api.Models;
+using System.Security.Claims;
+
+namespace PCConfigurator.api.Controllers
+{
+    [Authorize]
+    [ApiController]
+    [Route("api/[controller]")]
+    public class PCBuildLikeController : ControllerBase
+    {
+        private readonly ApplicationDbContext _context;
+
+        public PCBuildLikeController(ApplicationDbContext context)
+        {
+            _context = context;
+        }
+
+        // Добавить/убрать лайк
+        [HttpPost("{buildId}")]
+        public async Task<IActionResult> ToggleLike(int buildId)
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            var existing = await _context.PCBuildLikes
+                .FirstOrDefaultAsync(l => l.BuildId == buildId && l.UserId == userId);
+
+            if (existing != null)
+            {
+                // Удаляем лайк
+                _context.PCBuildLikes.Remove(existing);
+                await _context.SaveChangesAsync();
+                return Ok(new { liked = false });
+            }
+
+            // Добавляем лайк
+            var like = new PCBuildLike
+            {
+                BuildId = buildId,
+                UserId = userId
+            };
+
+            _context.PCBuildLikes.Add(like);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { liked = true });
+        }
+
+        // Список моих лайкнутых сборок
+        [HttpGet("my")]
+        public async Task<IActionResult> GetMyLikes()
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            var likes = await _context.PCBuildLikes
+                .Where(l => l.UserId == userId)
+                .Include(l => l.Build)
+                .ThenInclude(b => b.CPU)
+                .Include(l => l.Build.GPU)
+                .Include(l => l.Build.RAM)
+                .ToListAsync();
+
+            return Ok(likes);
+        }
+    }
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\PCConfigurator.api\Controllers\PSUController.cs
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using PCConfigurator.api.Models;
+using PCConfigurator.API.Data;
+using PCConfigurator.API.Models;
+
+namespace PCConfigurator.api.Controllers
+{
+    [ApiController]
+    [Route("api/[controller]")]
+    public class PSUController : ControllerBase
+    {
+        private readonly ApplicationDbContext _context;
+
+        public PSUController(ApplicationDbContext context)
+        {
+            _context = context;
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetAll() => Ok(await _context.PSUs.ToListAsync());
+
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetById(int id)
+        {
+            var item = await _context.PSUs.FindAsync(id);
+            return item == null ? NotFound() : Ok(item);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Create(PSU psu)
+        {
+            _context.PSUs.Add(psu);
+            await _context.SaveChangesAsync();
+            return CreatedAtAction(nameof(GetById), new { id = psu.Id }, psu);
+        }
+
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Update(int id, PSU psu)
+        {
+            if (id != psu.Id) return BadRequest();
+            _context.Entry(psu).State = EntityState.Modified;
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(int id)
+        {
+            var item = await _context.PSUs.FindAsync(id);
+            if (item == null) return NotFound();
+            _context.PSUs.Remove(item);
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+    }
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\PCConfigurator.api\Controllers\RAMController.cs
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using PCConfigurator.API.Data;
+using PCConfigurator.API.Models;
+
+namespace PCConfigurator.api.Controllers
+{
+
+    [ApiController]
+    [Route("api/[controller]")]
+    public class RAMController : ControllerBase
+    {
+        private readonly ApplicationDbContext _context;
+
+        public RAMController(ApplicationDbContext context)
+        {
+            _context = context;
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetAll() => Ok(await _context.RAMs.ToListAsync());
+
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetById(int id)
+        {
+            var ram = await _context.RAMs.FindAsync(id);
+            return ram == null ? NotFound() : Ok(ram);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Create(RAM ram)
+        {
+            _context.RAMs.Add(ram);
+            await _context.SaveChangesAsync();
+            return CreatedAtAction(nameof(GetById), new { id = ram.Id }, ram);
+        }
+
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Update(int id, RAM ram)
+        {
+            if (id != ram.Id) return BadRequest();
+            _context.Entry(ram).State = EntityState.Modified;
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(int id)
+        {
+            var ram = await _context.RAMs.FindAsync(id);
+            if (ram == null) return NotFound();
+            _context.RAMs.Remove(ram);
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+    }
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\PCConfigurator.api\Controllers\SSDController.cs
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using PCConfigurator.api.Models;
+using PCConfigurator.API.Data;
+using PCConfigurator.API.Models;
+
+namespace PCConfigurator.api.Controllers
+{
+    [ApiController]
+    [Route("api/[controller]")]
+    public class SSDController : ControllerBase
+    {
+        private readonly ApplicationDbContext _context;
+
+        public SSDController(ApplicationDbContext context)
+        {
+            _context = context;
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetAll() => Ok(await _context.SSDs.ToListAsync());
+
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetById(int id)
+        {
+            var item = await _context.SSDs.FindAsync(id);
+            return item == null ? NotFound() : Ok(item);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Create(SSD ssd)
+        {
+            _context.SSDs.Add(ssd);
+            await _context.SaveChangesAsync();
+            return CreatedAtAction(nameof(GetById), new { id = ssd.Id }, ssd);
+        }
+
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Update(int id, SSD ssd)
+        {
+            if (id != ssd.Id) return BadRequest();
+            _context.Entry(ssd).State = EntityState.Modified;
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(int id)
+        {
+            var item = await _context.SSDs.FindAsync(id);
+            if (item == null) return NotFound();
+            _context.SSDs.Remove(item);
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+    }
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\PCConfigurator.api\Controllers\ThermalPasteController.cs
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using PCConfigurator.api.Models;
+using PCConfigurator.API.Data;
+using PCConfigurator.API.Models;
+
+namespace PCConfigurator.api.Controllers
+{
+    [ApiController]
+    [Route("api/[controller]")]
+    public class ThermalPasteController : ControllerBase
+    {
+        private readonly ApplicationDbContext _context;
+
+        public ThermalPasteController(ApplicationDbContext context)
+        {
+            _context = context;
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetAll() => Ok(await _context.ThermalPastes.ToListAsync());
+
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetById(int id)
+        {
+            var item = await _context.ThermalPastes.FindAsync(id);
+            return item == null ? NotFound() : Ok(item);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Create(ThermalPaste tp)
+        {
+            _context.ThermalPastes.Add(tp);
+            await _context.SaveChangesAsync();
+            return CreatedAtAction(nameof(GetById), new { id = tp.Id }, tp);
+        }
+
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Update(int id, ThermalPaste tp)
+        {
+            if (id != tp.Id) return BadRequest();
+            _context.Entry(tp).State = EntityState.Modified;
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(int id)
+        {
+            var item = await _context.ThermalPastes.FindAsync(id);
+            if (item == null) return NotFound();
+            _context.ThermalPastes.Remove(item);
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+    }
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\PCConfigurator.api\Data\ApplicationDbContext.cs
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
+using PCConfigurator.api.Models;
+using PCConfigurator.API.Models;
+
+namespace PCConfigurator.API.Data
+{
+    // Наследуемся от IdentityDbContext<ApplicationUser>, чтобы работать с Identity
+    public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
+    {
+        public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
+            : base(options)
+        {
+        }
+
+        // DbSet для комплектующих
+        public DbSet<CPU> CPUs => Set<CPU>();
+        public DbSet<GPU> GPUs => Set<GPU>();
+        public DbSet<RAM> RAMs => Set<RAM>();
+        public DbSet<SSD> SSDs => Set<SSD>();
+        public DbSet<HDD> HDDs => Set<HDD>();
+        public DbSet<Motherboard> Motherboards => Set<Motherboard>();
+        public DbSet<PSU> PSUs => Set<PSU>();
+        public DbSet<ThermalPaste> ThermalPastes => Set<ThermalPaste>();
+        public DbSet<Case> Cases => Set<Case>();
+        public DbSet<PCBuild> PCBuilds => Set<PCBuild>();
+        public DbSet<PCBuildLike> PCBuildLikes { get; set; }
+
+
+        protected override void OnModelCreating(ModelBuilder builder)
+        {
+            base.OnModelCreating(builder); // обязательно вызывать для Identity
+            // Дополнительно можно настраивать таблицы, если нужно
+        }
+    }
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\PCConfigurator.api\Data\DatabaseSeeder.cs
+using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
+using PCConfigurator.api.Data;
+using PCConfigurator.api.Models;
+using PCConfigurator.API.Data;
+using PCConfigurator.API.Models;
+
+namespace PCConfigurator.api.Data
+{
+    public static class DatabaseSeeder
+    {
+        public static void Seed(ApplicationDbContext context)
+        {
+            if (!context.GPUs.Any())
+                LoadFromJson<GPU>(context, "gpu.json", context.GPUs);
+
+            if (!context.CPUs.Any())
+                LoadFromJson<CPU>(context, "cpu.json", context.CPUs);
+
+            if (!context.RAMs.Any())
+                LoadFromJson<RAM>(context, "ram.json", context.RAMs);
+
+            if (!context.Motherboards.Any())
+                LoadFromJson<Motherboard>(context, "motherboard.json", context.Motherboards);
+
+            if (!context.Cases.Any())
+                LoadFromJson<Case>(context, "case.json", context.Cases);
+
+            if (!context.PSUs.Any())
+                LoadFromJson<PSU>(context, "psu.json", context.PSUs);
+
+            if (!context.SSDs.Any())
+                LoadFromJson<SSD>(context, "ssd.json", context.SSDs);
+
+            if (!context.HDDs.Any())
+                LoadFromJson<HDD>(context, "hdd.json", context.HDDs);
+
+            if (!context.ThermalPastes.Any())
+                LoadFromJson<ThermalPaste>(context, "thermalpaste.json", context.ThermalPastes);
+
+            context.SaveChanges();
+        }
+
+        private static void LoadFromJson<T>(ApplicationDbContext context, string fileName, DbSet<T> table)
+            where T : class
+        {
+            var path = Path.Combine("SeedData", fileName);
+
+            if (!File.Exists(path))
+                return;
+
+            var json = File.ReadAllText(path);
+            var items = JsonSerializer.Deserialize<List<T>>(json);
+
+            if (items != null)
+            {
+                table.AddRange(items);
+            }
+        }
+    }
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\PCConfigurator.api\Data\DbInitializer.cs
+using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.DependencyInjection;
+using PCConfigurator.API.Models;
+
+namespace PCConfigurator.API.Data
+{
+    public static class DbInitializer
+    {
+        public static async Task SeedRolesAndAdminAsync(IServiceProvider serviceProvider)
+        {
+            // Получаем менеджеры через DI
+            var roleManager = serviceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+            var userManager = serviceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+
+            // Роли
+            string[] roles = { "Admin", "User" };
+
+            foreach (var role in roles)
+            {
+                if (!await roleManager.RoleExistsAsync(role))
+                    await roleManager.CreateAsync(new IdentityRole(role));
+            }
+
+            // Создаём администратора, если его нет
+            string adminUser = "admin";
+            string adminPass = "Admin123#@!";
+
+            if (await userManager.FindByNameAsync(adminUser) == null)
+            {
+                var admin = new ApplicationUser
+                {
+                    UserName = adminUser,
+                    Email = "admin@pcconfigurator.local"
+                };
+
+                var result = await userManager.CreateAsync(admin, adminPass);
+                if (result.Succeeded)
+                {
+                    await userManager.AddToRoleAsync(admin, "Admin");
+                }
+            }
+        }
+    }
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\PCConfigurator.api\Models\ApplicationUser.cs
+using Microsoft.AspNetCore.Identity;
+
+namespace PCConfigurator.API.Models
+{
+    public class ApplicationUser : IdentityUser
+    {
+        public string? FullName { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    }
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\PCConfigurator.api\Models\Case.cs
+namespace PCConfigurator.API.Models
+{
+    public class Case
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+        public string Manufacturer { get; set; } = "";
+        public string FormFactor { get; set; } = "";   // ATX, mATX, ITX
+        public float MaxGPULength { get; set; }        // мм
+        public float MaxCPUCoolerHeight { get; set; }  // мм
+        public int FanSupport { get; set; }            // количество вентиляторов
+        public bool HasRGB { get; set; }
+        public decimal Price { get; set; }
+        public string ImageUrl { get; set; } = "";
+        public string ShortDescription { get; set; } = "";
+    }
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\PCConfigurator.api\Models\CPU.cs
+namespace PCConfigurator.API.Models
+{
+    public class CPU
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+        public string Manufacturer { get; set; } = ""; // Intel / AMD
+        public string Socket { get; set; } = "";       // LGA1700, AM5 и т.п.
+        public int Cores { get; set; }
+        public int Threads { get; set; }
+        public float BaseFrequency { get; set; }       // в ГГц
+        public float BoostFrequency { get; set; }      // в ГГц
+        public int TDP { get; set; }                   // в ваттах
+        public string IntegratedGraphics { get; set; } = ""; // если есть
+        public decimal Price { get; set; }
+        public string ImageUrl { get; set; } = "";
+        public string ShortDescription { get; set; } = "";
+    }
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\PCConfigurator.api\Models\DTO\PCBuildDto.cs
+using PCConfigurator.api.Models;
+
+namespace PCConfigurator.API.Models.DTO
+{
+    public class PCBuildDto
+    {
+        public int Id { get; set; }
+        public string Name { get; set; }
+        public decimal TotalPrice { get; set; }
+        public int Likes { get; set; }
+
+        public CPU? CPU { get; set; }
+        public GPU? GPU { get; set; }
+        public RAM? RAM { get; set; }
+        public Motherboard? Motherboard { get; set; }
+        public SSD? SSD { get; set; }
+        public HDD? HDD { get; set; }
+        public PSU? PSU { get; set; }
+        public Case? Case { get; set; }
+        public ThermalPaste? ThermalPaste { get; set; }
+
+        public string UserName { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public string UserId { get; set; }
+    }
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\PCConfigurator.api\Models\GPU.cs
+namespace PCConfigurator.API.Models
+{
+    public class GPU
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+        public string Manufacturer { get; set; } = "";   // NVIDIA / AMD
+        public int MemorySize { get; set; }              // в ГБ
+        public string MemoryType { get; set; } = "";     // GDDR6, GDDR6X и т.п.
+        public int PowerConsumption { get; set; }        // Вт
+        public string PowerConnector { get; set; } = ""; // 8-pin, 16-pin и т.п.
+        public float Length { get; set; }                // мм
+        public decimal Price { get; set; }
+        public string ImageUrl { get; set; } = "";
+        public string ShortDescription { get; set; } = "";
+    }
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\PCConfigurator.api\Models\HDD.cs
+namespace PCConfigurator.API.Models
+{
+    public class HDD
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+        public string Manufacturer { get; set; } = "";
+        public int Capacity { get; set; }              // ГБ или ТБ
+        public int RPM { get; set; }                   // скорость вращения
+        public int Cache { get; set; }                 // МБ
+        public string Interface { get; set; } = "";    // SATA, SAS
+        public decimal Price { get; set; }
+        public string ImageUrl { get; set; } = "";
+        public string ShortDescription { get; set; } = "";
+    }
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\PCConfigurator.api\Models\Motherboard.cs
+namespace PCConfigurator.API.Models
+{
+    public class Motherboard
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+        public string Manufacturer { get; set; } = "";
+        public string Socket { get; set; } = "";
+        public string Chipset { get; set; } = "";
+        public string FormFactor { get; set; } = "";    // ATX, mATX, ITX
+        public int RAMSlots { get; set; }
+        public string RAMType { get; set; } = "";       // DDR4 / DDR5
+        public int MaxRAM { get; set; }                 // ГБ
+        public bool HasM2 { get; set; }
+        public bool HasPCIe5 { get; set; }
+        public decimal Price { get; set; }
+        public string ImageUrl { get; set; } = "";
+        public string ShortDescription { get; set; } = "";
+    }
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\PCConfigurator.api\Models\PCBuild.cs
+using PCConfigurator.API.Models;
+
+namespace PCConfigurator.api.Models
+{
+    public class PCBuild
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+
+        public int? CPUId { get; set; }
+        public CPU? CPU { get; set; }
+
+        public int? GPUId { get; set; }
+        public GPU? GPU { get; set; }
+
+        public int? RAMId { get; set; }
+        public RAM? RAM { get; set; }
+
+        public int? MotherboardId { get; set; }
+        public Motherboard? Motherboard { get; set; }
+
+        public int? SSDId { get; set; }
+        public SSD? SSD { get; set; }
+
+        public int? HDDId { get; set; }
+        public HDD? HDD { get; set; }
+
+        public int? PSUId { get; set; }
+        public PSU? PSU { get; set; }
+
+        public int? CaseId { get; set; }
+        public Case? Case { get; set; }
+
+        public int? ThermalPasteId { get; set; }
+        public ThermalPaste? ThermalPaste { get; set; }
+
+        public decimal TotalPrice { get; set; }
+        public string UserId { get; set; }
+        public ApplicationUser User { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    }
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\PCConfigurator.api\Models\PCBuildCreateDto.cs
+namespace PCConfigurator.API.Models.DTO
+{
+	public class PCBuildCreateDto
+	{
+		public string Name { get; set; } = "";
+		public int? CPUId { get; set; }
+		public int? GPUId { get; set; }
+		public int? RAMId { get; set; }
+		public int? MotherboardId { get; set; }
+		public int? SSDId { get; set; }
+		public int? HDDId { get; set; }
+		public int? PSUId { get; set; }
+		public int? CaseId { get; set; }
+		public int? ThermalPasteId { get; set; }
+
+    }
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\PCConfigurator.api\Models\PCBuildLike.cs
+using PCConfigurator.API.Models;
+
+namespace PCConfigurator.api.Models
+{
+    public class PCBuildLike
+    {
+        public int Id { get; set; }
+        public int BuildId { get; set; }
+        public string UserId { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        public PCBuild Build { get; set; }
+        public ApplicationUser User { get; set; }
+    }
+
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\PCConfigurator.api\Models\PSU.cs
+namespace PCConfigurator.API.Models
+{
+    public class PSU
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+        public string Manufacturer { get; set; } = "";
+        public int Power { get; set; }                 // Вт
+        public string FormFactor { get; set; } = "";   // ATX, SFX
+        public string Efficiency { get; set; } = "";   // 80+ Bronze, Gold и т.д.
+        public bool Modular { get; set; }
+        public decimal Price { get; set; }
+        public string ImageUrl { get; set; } = "";
+        public string ShortDescription { get; set; } = "";
+    }
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\PCConfigurator.api\Models\RAM.cs
+namespace PCConfigurator.API.Models
+{
+    public class RAM
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+        public string Manufacturer { get; set; } = "";
+        public string Type { get; set; } = "";         // DDR4 / DDR5
+        public int Capacity { get; set; }              // ГБ (на модуль)
+        public int Modules { get; set; }               // количество модулей в комплекте
+        public int Frequency { get; set; }             // МГц
+        public decimal Price { get; set; }
+        public string ImageUrl { get; set; } = "";
+        public string ShortDescription { get; set; } = "";
+    }
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\PCConfigurator.api\Models\SSD.cs
+namespace PCConfigurator.API.Models
+{
+    public class SSD
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+        public string Manufacturer { get; set; } = "";
+        public int Capacity { get; set; }              // ГБ
+        public string Interface { get; set; } = "";    // SATA / NVMe
+        public string FormFactor { get; set; } = "";   // 2.5", M.2
+        public int ReadSpeed { get; set; }             // МБ/с
+        public int WriteSpeed { get; set; }            // МБ/с
+        public decimal Price { get; set; }
+        public string ImageUrl { get; set; } = "";
+        public string ShortDescription { get; set; } = "";
+    }
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\PCConfigurator.api\Models\ThermalPaste.cs
+namespace PCConfigurator.API.Models
+{
+    public class ThermalPaste
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+        public string Manufacturer { get; set; } = "";
+        public float ThermalConductivity { get; set; } // Вт/м·К
+        public float Volume { get; set; }              // граммы
+        public decimal Price { get; set; }
+        public string ImageUrl { get; set; } = "";
+        public string ShortDescription { get; set; } = "";
+    }
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\PCConfigurator.api\Program.cs
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using PCConfigurator.api.Data;
+using PCConfigurator.API.Data;
+using PCConfigurator.API.Models;
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
+    .AddEntityFrameworkStores<ApplicationDbContext>()
+    .AddDefaultTokenProviders();
+
+var jwtKey = builder.Configuration["Jwt:Key"];
+var key = Encoding.ASCII.GetBytes(jwtKey);
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.RequireHttpsMetadata = false;
+    options.SaveToken = true;
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(key),
+        ValidateIssuer = false,
+        ValidateAudience = false
+    };
+});
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("ReactPolicy", policy =>
+    {
+        policy.WithOrigins("http://localhost:3000") 
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
+
+builder.Services.AddHttpClient<GigaChatAuthService>()
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+    {
+        ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true
+    });
+
+builder.Services.AddHttpClient<GigaChatService>()
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+    {
+        ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true
+    });
+
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+builder.Services.AddHttpClient<GigaChatAuthService>();
+builder.Services.AddHttpClient<GigaChatService>();
+
+var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    await DbInitializer.SeedRolesAndAdminAsync(services);
+}
+
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    DatabaseSeeder.Seed(context);
+}
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.UseRouting();
+app.UseCors("ReactPolicy");
+
+app.UseHttpsRedirection();
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapControllers();
+
+app.Run();
+
+
+
+FILE: D:\projects\PCConfigurator.api\PCConfigurator.api\Services\GigaChatAuthService.cs
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
+
+public class GigaChatAuthService
+{
+    private readonly HttpClient _http;
+    private string _cachedToken;
+    private DateTime _tokenExpiration;
+
+    private readonly string _authKey = "MDE5YTg3NzctMmRiMi03NzkxLWJkYWUtZjY0NTI5OTExMGI5OmE2NGJiMDkxLWRjZWEtNDEwMi1hYzI4LTU1NzQ0MDM4N2VmOQ==";
+
+    public GigaChatAuthService(HttpClient http)
+    {
+        _http = http;
+    }
+
+    public async Task<string> GetTokenAsync()
+    {
+        if (_cachedToken != null && DateTime.UtcNow < _tokenExpiration)
+            return _cachedToken;
+
+        var request = new HttpRequestMessage(HttpMethod.Post, "https://ngw.devices.sberbank.ru:9443/api/v2/oauth");
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        request.Headers.Add("RqUID", Guid.NewGuid().ToString());
+        request.Headers.Authorization = new AuthenticationHeaderValue("Basic", _authKey);
+
+        request.Content = new StringContent("scope=GIGACHAT_API_PERS", Encoding.UTF8, "application/x-www-form-urlencoded");
+
+        var response = await _http.SendAsync(request);
+
+        if (!response.IsSuccessStatusCode)
+            throw new HttpRequestException($"Unexpected status code {response.StatusCode}");
+
+        var json = await response.Content.ReadAsStringAsync();
+
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+
+        if (!root.TryGetProperty("access_token", out var accessTokenProp))
+            throw new InvalidOperationException("Access token is missing from the server's response.");
+
+        _cachedToken = accessTokenProp.GetString();
+
+        if (root.TryGetProperty("expires_at", out var expiresAtProp))
+        {
+            var expiresAtUnixMs = expiresAtProp.GetInt64();
+            _tokenExpiration = DateTimeOffset.FromUnixTimeMilliseconds(expiresAtUnixMs).UtcDateTime.AddSeconds(-60);
+        }
+        else if (root.TryGetProperty("expires_in", out var expiresInProp))
+        {
+            int expires = expiresInProp.GetInt32();
+            _tokenExpiration = DateTime.UtcNow.AddSeconds(expires - 60);
+        }
+        else
+        {
+            throw new InvalidOperationException("Expiration info is missing from the server's response.");
+        }
+
+        return _cachedToken;
+    }
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\PCConfigurator.api\Services\GigaChatService.cs
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
+
+public class GigaChatService
+{
+    private readonly HttpClient _http;
+    private readonly GigaChatAuthService _auth;
+
+    public GigaChatService(HttpClient http, GigaChatAuthService auth)
+    {
+        _http = http;
+        _auth = auth;
+    }
+
+    public async Task<string> AskAsync(string question)
+    {
+        string token = await _auth.GetTokenAsync();
+
+        string prompt = $@"
+            Ты — опытный консультант по подбору и сборке компьютеров. Твоя задача — давать точные, полезные и структурированные ответы на вопросы, связанные с компьютерными компонентами, их совместимостью, производительностью и оптимизацией сборок.
+
+            Ответь на следующий вопрос пользователя, максимально подробно, но четко. 
+
+            Если вопрос не связан с ПК — вежливо скажи, что ты отвечаешь только на вопросы по сборке ПК. На вопросы не по теме, не отвечай.
+            ";
+
+        var body = new
+        {
+            model = "GigaChat",
+            messages = new[]
+            {
+                new { role = "system", content = prompt },
+                new { role = "user", content = question }
+            },
+            temperature = 0.5
+        };
+
+        var json = JsonSerializer.Serialize(body);
+        var request = new HttpRequestMessage(HttpMethod.Post,
+            "https://gigachat.devices.sberbank.ru/api/v1/chat/completions");
+
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var response = await _http.SendAsync(request);
+        var text = await response.Content.ReadAsStringAsync();
+
+        using var doc = JsonDocument.Parse(text);
+        var answer = doc.RootElement
+                       .GetProperty("choices")[0]
+                       .GetProperty("message")
+                       .GetProperty("content").GetString();
+
+        return answer;
+    }
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\PCConfigurator.api\WeatherForecast.cs
+namespace PCConfigurator.api
+{
+    public class WeatherForecast
+    {
+        public DateOnly Date { get; set; }
+
+        public int TemperatureC { get; set; }
+
+        public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
+
+        public string? Summary { get; set; }
+    }
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\pcconfigurator-client\src\App.css
+.App {
+  text-align: center;
+}
+
+.App-logo {
+  height: 40vmin;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .App-logo {
+    animation: App-logo-spin infinite 20s linear;
+  }
+}
+
+.App-header {
+  background-color: #282c34;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(10px + 2vmin);
+  color: white;
+}
+
+.App-link {
+  color: #61dafb;
+}
+
+@keyframes App-logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\pcconfigurator-client\src\App.js
+import React from "react";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import Header from "./components/Header";
+import PCBuilder from "./components/PCBuilder";
+import MainPage from "./components/MainPage";
+import AdminPanel from "./components/AdminPanel";
+import ProtectedRoute from "./components/ProtectedRoute";
+import Login from "./components/Login";
+import Register from "./components/Register";
+import ChatBot from "./components/ChatBot";
+import ConfigurationsPage from './components/ConfigurationsPage';
+import GuidesPage from './components/GuidesPage';
+
+function Home() {
+  return <MainPage />;
+}
+
+function App() {
+  return (
+    <Router>
+      <Header />
+      <div style={{ padding: "30px", paddingTop: "10px" }}>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/configurations" element={<ConfigurationsPage />} />
+          <Route path="/guides" element={<GuidesPage />} />
+          <Route path="/chatbot" element={<ChatBot />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          {/* Защищённый маршрут для админки с проверкой роли */}
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute role="Admin">
+                <AdminPanel />
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+      </div>
+    </Router>
+  );
+}
+
+export default App;
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\pcconfigurator-client\src\App.test.js
+import { render, screen } from '@testing-library/react';
+import App from './App';
+
+test('renders learn react link', () => {
+  render(<App />);
+  const linkElement = screen.getByText(/learn react/i);
+  expect(linkElement).toBeInTheDocument();
+});
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\pcconfigurator-client\src\components\AdminPanel.js
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import CPUForm from "./CPUForm";
+import GPUForm from "./GPUForm";
+import RAMForm from "./RAMForm";
+import SSDForm from "./SSDForm";
+import HDDForm from "./HDDForm";
+import PSUForm from "./PSUForm";
+import MBForm from "./MBForm";
+import CaseForm from "./CaseForm";
+import ThermalPasteForm from "./ThermalPasteForm";
+// import ItemList from "./ItemList";
+
+export default function AdminPanel() {
+  const [cpus, setCpus] = useState([]);
+  const [gpus, setGpus] = useState([]);
+  const [rams, setRams] = useState([]);
+  const [ssds, setSsds] = useState([]);
+  const [hdds, setHdds] = useState([]);
+  const [psus, setPsus] = useState([]);
+  const [mbs, setMbs] = useState([]);
+  const [cases, setCases] = useState([]);
+  const [thermal, setThermal] = useState([]);
+  const [error, setError] = useState("");
+
+  const token = localStorage.getItem("token");
+  const role = localStorage.getItem("role");
+
+  const fetchAll = async () => {
+    if (!token) return;
+    const headers = { Authorization: `Bearer ${token}` };
+
+    try {
+      // Загружаем все данные параллельно
+      const [
+        cpuRes,
+        gpuRes,
+        ramRes,
+        ssdRes,
+        hddRes,
+        psuRes,
+        mbRes,
+        caseRes,
+        thermalRes,
+      ] = await Promise.all([
+        axios.get("http://localhost:8080/api/CPU", { headers }),
+        axios.get("http://localhost:8080/api/GPU", { headers }),
+        axios.get("http://localhost:8080/api/RAM", { headers }),
+        axios.get("http://localhost:8080/api/SSD", { headers }),
+        axios.get("http://localhost:8080/api/HDD", { headers }),
+        axios.get("http://localhost:8080/api/PSU", { headers }),
+        axios.get("http://localhost:8080/api/Motherboard", { headers }),
+        axios.get("http://localhost:8080/api/Case", { headers }),
+        axios.get("http://localhost:8080/api/ThermalPaste", { headers }),
+      ]);
+
+      setCpus(cpuRes.data);
+      setGpus(gpuRes.data);
+      setRams(ramRes.data);
+      setSsds(ssdRes.data);
+      setHdds(hddRes.data);
+      setPsus(psuRes.data);
+      setMbs(mbRes.data);
+      setCases(caseRes.data);
+      setThermal(thermalRes.data);
+    } catch (err) {
+      console.error("Ошибка при загрузке данных:", err);
+      setError("⚠ Ошибка при загрузке данных или нет доступа.");
+    }
+  };
+
+  // Загружаем данные при монтировании и изменении токена
+  useEffect(() => {
+    if (token && role === "Admin") {
+      fetchAll();
+    }
+  }, [token, role]);
+
+  // Проверка токена и роли
+  if (!token) {
+    return <p>⚠ Нет доступа. Пожалуйста, войдите в систему.</p>;
+  }
+
+  if (role !== "Admin") {
+    return <p>🚫 Доступ запрещён. Только для администраторов.</p>;
+  }
+
+  if (error) {
+    return <p>{error}</p>;
+  }
+
+  return (
+    <div style={{ padding: "20px" }}>
+      <h2>Панель администратора</h2>
+
+      <CPUForm onAdded={(item) => setCpus([...cpus, item])} />
+      <GPUForm onAdded={(item) => setGpus([...gpus, item])} />
+      <RAMForm onAdded={(item) => setRams([...rams, item])} />
+      <SSDForm onAdded={(item) => setSsds([...ssds, item])} />
+      <HDDForm onAdded={(item) => setHdds([...hdds, item])} />
+      <PSUForm onAdded={(item) => setPsus([...psus, item])} />
+      <MBForm onAdded={(item) => setMbs([...mbs, item])} />
+      <CaseForm onAdded={(item) => setCases([...cases, item])} />
+      <ThermalPasteForm onAdded={(item) => setThermal([...thermal, item])} />
+
+      {/* При желании вернуть список компонентов */}
+      {/* 
+      <ItemList items={cpus} title="CPUs" />
+      <ItemList items={gpus} title="GPUs" />
+      <ItemList items={rams} title="RAMs" />
+      ...
+      */}
+    </div>
+  );
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\pcconfigurator-client\src\components\Auth.css
+.auth-container {
+  width: 350px;
+  margin: 100px auto;
+  padding: 25px;
+  border-radius: 15px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.15);
+  text-align: center;
+}
+
+.auth-container input {
+  width: 90%;
+  margin: 8px 0;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+}
+
+.auth-container button {
+  padding: 10px 20px;
+  margin-top: 10px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.auth-container button:hover {
+  background: #0056b3;
+}
+
+.auth-message {
+  margin-top: 15px;
+  font-weight: 500;
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\pcconfigurator-client\src\components\CaseForm.js
+import React, { useState } from "react";
+import axios from "axios";
+
+export default function CaseForm({ onAdded }) {
+  const [name, setName] = useState("");
+  const [formfactor, setFormFactor] = useState("");
+  const [price, setPrice] = useState("");
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await axios.post("http://localhost:8080/api/Case", {
+        name,
+        formfactor: formfactor,
+        price: parseFloat(price),
+      });
+      onAdded(res.data);
+      setName(""); setFormFactor(""); setPrice("");
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} style={{ marginBottom: "20px" }}>
+      <h4>Корпус</h4>
+      <input placeholder="Название" value={name} onChange={e => setName(e.target.value)} required />
+      <input placeholder="Форма" value={formfactor} onChange={e => setFormFactor(e.target.value)} required />
+      <input placeholder="Цена" type="number" value={price} onChange={e => setPrice(e.target.value)} required />
+      <button type="submit">Добавить</button>
+    </form>
+  );
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\pcconfigurator-client\src\components\ChatBot.css
+.chatbot-container {
+  display: flex;
+  flex-direction: column;
+  height: 85vh;
+  max-width: 900px;
+  margin: 0 auto;
+  margin-top: 20px;
+  background: #ffffff;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+  border-radius: 20px;
+  overflow: hidden;
+  font-family: 'Segoe UI', Arial, sans-serif;
+}
+
+/* Header */
+.chatbot-header {
+  background: linear-gradient(135deg, #0078ff, #0056cc);
+  padding: 20px 25px;
+  color: white;
+  box-shadow: 0 2px 15px rgba(0, 120, 255, 0.3);
+}
+
+.header-content {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.header-avatar {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+}
+
+.header-info h3 {
+  margin: 0 0 5px 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.status {
+  font-size: 14px;
+  opacity: 0.9;
+  display: flex;
+  align-items: center;
+}
+
+.status::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  background: #4ade80;
+  border-radius: 50%;
+  margin-right: 8px;
+}
+
+/* Messages Area */
+.chatbot-messages {
+  flex: 1;
+  padding: 25px;
+  overflow-y: auto;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Welcome Message */
+.welcome-message {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  background: white;
+  padding: 25px;
+  border-radius: 20px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+  margin: auto;
+  max-width: 500px;
+}
+
+.welcome-avatar {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+}
+
+.welcome-text h3 {
+  margin: 0 0 8px 0;
+  color: #1a202c;
+  font-size: 18px;
+}
+
+.welcome-text p {
+  margin: 0;
+  color: #718096;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+/* Messages */
+.message {
+  display: flex;
+  gap: 12px;
+  max-width: 80%;
+}
+
+.user-message {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+
+.bot-message {
+  align-self: flex-start;
+}
+
+.message-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.message-content {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.message-bubble {
+  padding: 15px 20px;
+  border-radius: 20px;
+  font-size: 15px;
+  line-height: 1.5;
+  word-wrap: break-word;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.bot-message .message-bubble {
+  background: white;
+  color: #2d3748;
+  border-bottom-left-radius: 5px;
+  border: 1px solid #e2e8f0;
+}
+
+.user-message .message-bubble {
+  background: linear-gradient(135deg, #0078ff, #0056cc);
+  color: white;
+  border-bottom-right-radius: 5px;
+}
+
+/* Typing Indicator */
+.typing {
+  background: #e2e8f0 !important;
+  color: transparent !important;
+}
+
+.typing-indicator {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+}
+
+.typing-indicator span {
+  width: 8px;
+  height: 8px;
+  background: #a0aec0;
+  border-radius: 50%;
+  animation: typing 1.4s infinite ease-in-out;
+}
+
+.typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+.typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+
+@keyframes typing {
+  0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
+  40% { transform: scale(1); opacity: 1; }
+}
+
+/* Input Area */
+.chatbot-input {
+  padding: 20px 25px;
+  background: white;
+  border-top: 1px solid #e2e8f0;
+}
+
+.input-container {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  background: #f7fafc;
+  border: 2px solid #e2e8f0;
+  border-radius: 25px;
+  padding: 5px 5px 5px 20px;
+  transition: all 0.3s ease;
+}
+
+.input-container:focus-within {
+  border-color: #0078ff;
+  background: white;
+  box-shadow: 0 0 0 3px rgba(0, 120, 255, 0.1);
+}
+
+.input-container input {
+  flex: 1;
+  border: none;
+  background: none;
+  outline: none;
+  font-size: 15px;
+  padding: 12px 0;
+  color: #2d3748;
+}
+
+.input-container input::placeholder {
+  color: #a0aec0;
+}
+
+.input-container input:disabled {
+  color: #cbd5e0;
+}
+
+.send-button {
+  background: #0078ff;
+  border: none;
+  border-radius: 50%;
+  width: 46px;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: white;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+}
+
+.send-button:hover:not(:disabled) {
+  background: #0056cc;
+  transform: scale(1.05);
+}
+
+.send-button:disabled {
+  background: #cbd5e0;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Scrollbar */
+.chatbot-messages::-webkit-scrollbar {
+  width: 6px;
+}
+
+.chatbot-messages::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.chatbot-messages::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.chatbot-messages::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Стили для форматированного контента бота */
+.bot-message-content {
+  line-height: 1.5;
+  font-size: 16px;
+}
+
+.bot-message-content h4 {
+  margin: 16px 0 8px 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #2d3748;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.bot-message-content p {
+  margin: 0 0 12px 0;
+  color: #4a5568;
+  line-height: 1.5;
+}
+
+.bot-message-content p:last-child {
+  margin-bottom: 0;
+}
+
+.bot-message-content strong {
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.bot-message-content ul {
+  margin: 8px 0;
+  padding-left: 16px;
+  color: #4a5568;
+}
+
+.bot-message-content li {
+  margin-bottom: 6px;
+  padding-left: 4px;
+  line-height: 1.4;
+}
+
+.bot-message-content li:last-child {
+  margin-bottom: 0;
+}
+
+/* Убираем стандартные маркеры и ставим свои */
+.bot-message-content ul {
+  list-style: none;
+}
+
+.bot-message-content li::before {
+  content: "•";
+  color: #0078ff;
+  font-weight: bold;
+  display: inline-block;
+  width: 12px;
+  margin-left: -12px;
+}
+
+/* Улучшаем читаемость длинных сообщений */
+.bot-message .message-bubble {
+  max-width: 100%;
+  text-align: left;
+}
+
+/* Более компактные отступы */
+.bot-message-content *:first-child {
+  margin-top: 0;
+}
+
+.bot-message-content *:last-child {
+  margin-bottom: 0;
+}
+
+/* Адаптивность для форматированного контента */
+@media (max-width: 768px) {
+  .bot-message-content {
+    font-size: 16px;
+  }
+  
+  .bot-message-content h4 {
+    font-size: 17px;
+  }
+  
+  .bot-message-content p {
+    font-size: 16px;
+  }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .chatbot-container {
+    height: 100vh;
+    border-radius: 0;
+    margin: 0;
+  }
+  
+  .message {
+    max-width: 90%;
+  }
+  
+  .chatbot-header {
+    padding: 15px 20px;
+  }
+  
+  .chatbot-messages {
+    padding: 15px;
+  }
+}
+
+
+
+FILE: D:\projects\PCConfigurator.api\pcconfigurator-client\src\components\ChatBot.js
+import { useState } from "react";
+import "./ChatBot.css";
+
+function ChatBot() {
+  const [question, setQuestion] = useState("");
+  const [messages, setMessages] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Функция для преобразования текста в HTML с разметкой
+  const formatMessage = (text) => {
+    if (!text) return "";
+
+    return text
+      // Убираем ###
+      .replace(/### /g, '')
+      // Заголовки (текст перед списком) -> h4
+      .replace(/([А-Я][А-Яа-я\s\-]+:)(\s•)/g, '<h4>$1</h4>$2')
+      // Добавляем перенос перед • которые идут сразу после текста
+      .replace(/([а-яё])([\s\u00A0]*•[\s\u00A0]*)([А-Я])/gi, '$1</p><p>• $3')
+      // Убираем нумерованные списки (1. 2. 3.) - преобразуем в обычные пункты
+      .replace(/(\d+)\.\s+/g, '• ')
+      // Заголовки (текст на отдельной строке) -> h4
+      .replace(/(\n|^)([А-Я][А-Яа-я\s\-]+)(\n|$)/g, '$1<h4>$2</h4>$3')
+      // Маркированные списки с дефисами -> li
+      .replace(/^-\s+(.+)$/gm, '<li>$1</li>')
+      // Группируем li в ul
+      .replace(/(<li>.*<\/li>)+/g, (match) => `<ul>${match}</ul>`)
+      // Жирный текст **текст** -> <strong>
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      // Убираем лишние переносы и пробелы
+      .replace(/\n\s*\n/g, '</p><p>')
+      .replace(/\n/g, ' ')
+      .replace(/\s+/g, ' ')
+      // Оборачиваем в параграф
+      .replace(/^(.*)$/, '<p>$1</p>')
+      // Чистим лишние теги
+      .replace(/<p><\/p>/g, '')
+      .replace(/<p><h4/g, '<h4')
+      .replace(/<\/h4><\/p>/g, '</h4>')
+      .replace(/<p><ul/g, '<ul')
+      .replace(/<\/ul><\/p>/g, '</ul>')
+      .replace(/<p>\s*<li/g, '<ul><li')
+      .replace(/<\/li>\s*<\/p>/g, '</li></ul>')
+
+      .trim();
+  };
+
+  const send = async () => {
+    if (!question.trim() || isLoading) return;
+
+    const myMsg = { from: "user", text: question };
+    setMessages(prev => [...prev, myMsg]);
+    setIsLoading(true);
+    setQuestion("");
+
+    try {
+      const res = await fetch("http://localhost:8080/api/ChatBot", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "*/*"
+        },
+        body: JSON.stringify({ question: question })
+      });
+
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+
+      const data = await res.json();
+      const botMsg = { 
+        from: "bot", 
+        text: data.answer,
+        html: formatMessage(data.answer)
+      };
+      setMessages(prev => [...prev, botMsg]);
+      
+    } catch (error) {
+      console.error("Fetch error:", error);
+      const errorMsg = { 
+        from: "bot", 
+        text: "Извините, произошла ошибка. Попробуйте позже." 
+      };
+      setMessages(prev => [...prev, errorMsg]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && !isLoading) {
+      send();
+    }
+  };
+
+  return (
+    <div className="chatbot-container">
+      <div className="chatbot-header">
+        <div className="header-content">
+          <img src="/images/bot-avatar.png" alt="Bot" className="header-avatar" />
+          <div className="header-info">
+            <h3>GIGACHAT помощник</h3>
+            <span className="status">Online</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="chatbot-messages">
+        {messages.length === 0 && (
+          <div className="welcome-message">
+            <img src="/images/bot-avatar.png" alt="Bot" className="welcome-avatar" />
+            <div className="welcome-text">
+              <h3>Привет! Я GIGACHAT помощник</h3>
+              <p>Задавайте вопросы о сборке компьютеров, компонентах и совместимости</p>
+            </div>
+          </div>
+        )}
+        
+        {messages.map((m, i) => (
+          <div key={i} className={`message ${m.from === "user" ? "user-message" : "bot-message"}`}>
+            <img 
+              src={m.from === "user" ? "/images/user-avatar.png" : "/images/bot-avatar.png"} 
+              alt="Avatar" 
+              className="message-avatar" 
+            />
+            <div className="message-content">
+              <div className="message-bubble">
+                {m.from === "user" ? (
+                  m.text
+                ) : (
+                  <div 
+                    className="bot-message-content"
+                    dangerouslySetInnerHTML={{ __html: m.html || m.text }}
+                  />
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+        
+        {isLoading && (
+          <div className="message bot-message">
+            <img src="/images/bot-avatar.png" alt="Bot" className="message-avatar" />
+            <div className="message-content">
+              <div className="message-bubble typing">
+                <div className="typing-indicator">
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="chatbot-input">
+        <div className="input-container">
+          <input
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            onKeyPress={handleKeyPress}
+            placeholder="Введите ваш вопрос о сборке ПК..."
+            disabled={isLoading}
+          />
+          <button 
+            onClick={send} 
+            disabled={isLoading || !question.trim()}
+            className="send-button"
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <path d="M2 21L23 12L2 3V10L17 12L2 14V21Z" fill="currentColor"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default ChatBot;
+
+
+
+FILE: D:\projects\PCConfigurator.api\pcconfigurator-client\src\components\ConfigurationsPage.css
+.configurations-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  padding-top: 20px;
+  font-family: Arial, sans-serif;
+}
+
+.loading {
+  text-align: center;
+  font-size: 18px;
+  color: #666;
+  margin: 50px 0;
+}
+
+/* Заголовок */
+.configurations-header {
+  margin-bottom: 30px;
+}
+
+.configurations-header h1 {
+  text-align: center;
+  color: #333;
+  margin-bottom: 30px;
+  font-size: 32px;
+}
+
+/* Вкладки */
+.tabs {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 30px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  padding: 4px;
+  gap: 4px;
+}
+
+.tab {
+  flex: 1;
+  padding: 12px 20px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  color: #666;
+}
+
+.tab.active {
+  background: white;
+  color: #0078ff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.tab:hover:not(.active) {
+  background: rgba(0, 120, 255, 0.1);
+  color: #0078ff;
+}
+
+/* Фильтры */
+.filters {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+  margin-bottom: 30px;
+}
+
+.search-box {
+  flex: 1;
+  max-width: 780px;
+}
+
+.search-input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid #e1e5e9;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: border-color 0.3s ease;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #0078ff;
+}
+
+.price-filter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: #666;
+}
+
+.price-input {
+  width: 100px;
+  padding: 8px 12px;
+  border: 2px solid #e1e5e9;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.price-input:focus {
+  outline: none;
+  border-color: #0078ff;
+}
+
+/* Сетка карточек */
+.builds-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 20px;
+  margin-bottom: 40px;
+}
+
+.no-builds {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: #666;
+  font-size: 16px;
+  padding: 60px 20px;
+  background: #f8f9fa;
+  border-radius: 12px;
+}
+
+/* Карточка сборки */
+.build-card {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  height: fit-content;
+}
+
+.build-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+}
+
+/* Заголовок карточки */
+.build-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.build-name {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+  margin: 0;
+  flex: 1;
+  margin-right: 10px;
+  line-height: 1.3;
+}
+
+/* Кнопка лайка */
+.like-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #f8f9fa;
+  border: none;
+  border-radius: 20px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 14px;
+  color: #666;
+}
+
+.like-btn:hover {
+  background: #ffe3e3;
+  color: #ff4444;
+}
+
+.like-btn.liked {
+  background: #ffe3e3;
+  color: #ff4444;
+}
+
+.like-btn img {
+  width: 16px;
+  height: 16px;
+}
+
+/* Цена */
+.build-price {
+  font-size: 24px;
+  font-weight: 700;
+  color: #0078ff;
+  margin-bottom: 16px;
+}
+
+/* Компоненты */
+.build-components {
+  margin-bottom: 16px;
+  flex: 1;
+}
+
+.component-item {
+  font-size: 13px;
+  color: #555;
+  padding: 4px 0;
+  border-bottom: 1px solid #f0f0f0;
+  line-height: 1.3;
+}
+
+.component-item:last-child {
+  border-bottom: none;
+}
+
+/* Футер карточки */
+.build-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 12px;
+  border-top: 1px solid #f0f0f0;
+  font-size: 12px;
+  color: #888;
+}
+
+.build-user {
+  font-weight: 500;
+}
+
+.build-date {
+  color: #999;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+  .configurations-page {
+    padding: 10px;
+  }
+
+  .filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .search-box {
+    min-width: auto;
+  }
+
+  .price-filter {
+    justify-content: space-between;
+  }
+
+  .builds-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tabs {
+    flex-direction: column;
+  }
+
+  .debug-info {
+    font-size: 10px;
+    color: #999;
+    margin-top: 8px;
+    padding: 4px;
+    border-radius: 4px;
+    background: #f9f9f9;
+    text-align: center;
+  }
+
+  .debug-info.my-build {
+    background: #e8f5e8;
+    color: #2d5016;
+    font-weight: bold;
+  }
+}
+
+
+
+FILE: D:\projects\PCConfigurator.api\pcconfigurator-client\src\components\ConfigurationsPage.js
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import "./ConfigurationsPage.css";
+
+export default function ConfigurationsPage() {
+  const [activeTab, setActiveTab] = useState("all");
+  const [builds, setBuilds] = useState([]);
+  const [filteredBuilds, setFilteredBuilds] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [priceRange, setPriceRange] = useState({ min: 0, max: 1000000 });
+  const [loading, setLoading] = useState(true);
+  const [myLikes, setMyLikes] = useState(new Set());
+  const [currentUsername, setCurrentUsername] = useState("");
+
+  // Получаем имя текущего пользователя из localStorage
+  useEffect(() => {
+    const username = localStorage.getItem("username");
+    if (username) {
+      setCurrentUsername(username);
+    }
+  }, []);
+
+  // Загрузка сборок
+  useEffect(() => {
+    loadBuilds();
+    loadMyLikes();
+  }, []);
+
+  // Фильтрация и поиск
+  useEffect(() => {
+    let filtered = builds;
+
+    // Фильтр по вкладкам
+    if (activeTab === "my") {
+      if (currentUsername) {
+        const myBuilds = builds.filter(build => {
+          const matches = build.userName === currentUsername;
+          return matches;
+        });
+        filtered = myBuilds;
+      } else {
+        filtered = [];
+      }
+    } else if (activeTab === "liked") {
+      filtered = filtered.filter(build => myLikes.has(build.id));
+    }
+
+    // Поиск по названию
+    if (searchTerm) {
+      filtered = filtered.filter(build =>
+        build.name.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Фильтр по цене
+    filtered = filtered.filter(build =>
+      build.totalPrice >= priceRange.min && build.totalPrice <= priceRange.max
+    );
+
+    // Сортировка по лайкам (по умолчанию)
+    filtered.sort((a, b) => b.likes - a.likes);
+
+    setFilteredBuilds(filtered.slice(0, 30)); // Ограничение 30 карточек, другие искать по названию
+  }, [builds, activeTab, searchTerm, priceRange, myLikes, currentUsername]);
+
+  const loadBuilds = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await axios.get("http://localhost:8080/api/PCBuild", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      setBuilds(response.data);
+      setLoading(false);
+    } catch (error) {
+      console.error("Ошибка загрузки сборок:", error);
+      setLoading(false);
+    }
+  };
+
+  const loadMyLikes = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await axios.get("http://localhost:8080/api/PCBuildLike/my", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      const likedBuildIds = response.data.map(like => like.buildId);
+      setMyLikes(new Set(likedBuildIds));
+    } catch (error) {
+      console.error("Ошибка загрузки лайков:", error);
+    }
+  };
+
+  const handleLike = async (buildId) => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await axios.post(
+        `http://localhost:8080/api/PCBuildLike/${buildId}`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      // Обновляем локальное состояние лайков
+      const newLikes = new Set(myLikes);
+      if (response.data.liked) {
+        newLikes.add(buildId);
+      } else {
+        newLikes.delete(buildId);
+      }
+      setMyLikes(newLikes);
+
+      // Обновляем счетчик лайков в сборках
+      setBuilds(prevBuilds =>
+        prevBuilds.map(build =>
+          build.id === buildId
+            ? {
+                ...build,
+                likes: response.data.liked ? build.likes + 1 : build.likes - 1
+              }
+            : build
+        )
+      );
+    } catch (error) {
+      console.error("Ошибка лайка:", error);
+    }
+  };
+
+  const getComponentList = (build) => {
+    const components = [];
+    
+    if (build.cpu && build.cpu.name) components.push(`CPU: ${build.cpu.name}`);
+    if (build.gpu && build.gpu.name) components.push(`GPU: ${build.gpu.name}`);
+    if (build.ram && build.ram.name) components.push(`RAM: ${build.ram.name}`);
+    if (build.motherboard && build.motherboard.name) components.push(`MB: ${build.motherboard.name}`);
+    if (build.ssd && build.ssd.name) components.push(`SSD: ${build.ssd.name}`);
+    if (build.hdd && build.hdd.name) components.push(`HDD: ${build.hdd.name}`);
+    if (build.psu && build.psu.name) components.push(`PSU: ${build.psu.name}`);
+    if (build.case && build.case.name) components.push(`Case: ${build.case.name}`);
+    if (build.thermalPaste && build.thermalPaste.name) components.push(`Paste: ${build.thermalPaste.name}`);
+    
+    return components;
+  };
+
+  if (loading) {
+    return <div className="loading">Загрузка конфигураций...</div>;
+  }
+
+  return (
+    <div className="configurations-page">
+      {/* Заголовок и фильтры */}
+      <div className="configurations-header">
+        <h1>Конфигурации ПК</h1>
+        
+        {/* Переключение вкладок */}
+        <div className="tabs">
+          <button
+            className={`tab ${activeTab === "all" ? "active" : ""}`}
+            onClick={() => setActiveTab("all")}
+          >
+            Все конфигурации
+          </button>
+          <button
+            className={`tab ${activeTab === "my" ? "active" : ""}`}
+            onClick={() => {
+              setActiveTab("my");
+              console.log("Текущий username:", currentUsername);
+            }}
+          >
+            Мои конфигурации
+          </button>
+          <button
+            className={`tab ${activeTab === "liked" ? "active" : ""}`}
+            onClick={() => setActiveTab("liked")}
+          >
+            Понравившиеся
+          </button>
+        </div>
+
+        {/* Поиск и фильтры */}
+        <div className="filters">
+          <div className="search-box">
+            <input
+              type="text"
+              placeholder="Поиск по названию сборки..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="search-input"
+            />
+          </div>
+
+          <div className="price-filter">
+            <label>Цена: </label>
+            <input
+              type="text"
+              placeholder="Мин"
+              value={priceRange.min === 0 ? '' : priceRange.min}
+              onChange={(e) => {
+                const value = e.target.value.replace(/[^0-9]/g, ''); // Оставляем только цифры
+                setPriceRange(prev => ({
+                  ...prev,
+                  min: value === '' ? 0 : parseInt(value) || 0
+                }));
+              }}
+              className="price-input"
+            />
+            <span> - </span>
+            <input
+              type="text"
+              placeholder="Макс"
+              value={priceRange.max === 10000000 ? '' : priceRange.max}
+              onChange={(e) => {
+                const value = e.target.value.replace(/[^0-9]/g, ''); // Оставляем только цифры
+                setPriceRange(prev => ({
+                  ...prev,
+                  max: value === '' ? 10000000 : parseInt(value) || 10000000
+                }));
+              }}
+              className="price-input"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Сетка карточек */}
+      <div className="builds-grid">
+        {filteredBuilds.length === 0 ? (
+          <div className="no-builds">
+            {activeTab === "all" && "Нет сборок для отображения"}
+            {activeTab === "my" && (currentUsername 
+              ? "У вас пока нет сохраненных сборок" 
+              : "Войдите в систему чтобы увидеть свои сборки")}
+            {activeTab === "liked" && "Вы еще не лайкнули ни одной сборки"}
+          </div>
+        ) : (
+          filteredBuilds.map(build => (
+            <div key={build.id} className="build-card">
+              {/* Заголовок и лайк */}
+              <div className="build-card-header">
+                <div className="build-title-wrapper">
+                  <h3 className="build-name">
+                    {/* Подсветка сборок пользователя */}
+                    {build.userName === currentUsername && (
+                      <span className="my-build-badge">⭐ </span>
+                    )}
+                    {build.name}
+                  </h3>
+                </div>
+                <button
+                  className={`like-btn ${myLikes.has(build.id) ? "liked" : ""}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleLike(build.id);
+                  }}
+                >
+                  <img
+                    src={myLikes.has(build.id) ? "/images/liked.png" : "/images/unliked.png"}
+                    alt="like"
+                  />
+                  <span>{build.likes}</span>
+                </button>
+              </div>
+
+              {/* Цена */}
+              <div className="build-price">{build.totalPrice.toLocaleString()} ₽</div>
+
+              {/* Компоненты */}
+              <div className="build-components">
+                {getComponentList(build).map((component, index) => (
+                  <div key={index} className="component-item">
+                    {component}
+                  </div>
+                ))}
+                {getComponentList(build).length === 0 && (
+                  <div className="component-item">Компоненты не указаны</div>
+                )}
+              </div>
+
+              {/* Информация о пользователе */}
+              <div className="build-footer">
+                <span className="build-user">{build.userName}</span>
+                <span className="build-date">
+                  {build.createdAt ? (
+                    new Date(build.createdAt).toLocaleDateString('ru-RU', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric'
+                    })
+                  ) : (
+                    'Дата не указана'
+                  )}
+                </span>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+
+FILE: D:\projects\PCConfigurator.api\pcconfigurator-client\src\components\CPUForm.js
+import React, { useState } from "react";
+import axios from "axios";
+
+export default function CPUForm({ onAdded }) {
+  const [name, setName] = useState("");
+  const [cores, setCores] = useState("");
+  const [frequency, setFrequency] = useState("");
+  const [price, setPrice] = useState("");
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await axios.post("http://localhost:8080/api/CPU", {
+        name,
+        cores: parseInt(cores),
+        frequency: parseInt(frequency),
+        price: parseFloat(price),
+      });
+      onAdded(res.data);
+      setName(""); setCores(""); setFrequency(""); setPrice("");
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} style={{ marginBottom: "20px" }}>
+      <h4>Процессор</h4>
+      <input placeholder="Название" value={name} onChange={e => setName(e.target.value)} required />
+      <input placeholder="Ядра" type="number" value={cores} onChange={e => setCores(e.target.value)} required />
+      <input placeholder="Частота" type="number" value={frequency} onChange={e => setFrequency(e.target.value)} required />
+      <input placeholder="Цена" type="number" value={price} onChange={e => setPrice(e.target.value)} required />
+      <button type="submit">Добавить</button>
+    </form>
+  );
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\pcconfigurator-client\src\components\CpuList.js
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+
+function CpuList() {
+  const [cpus, setCpus] = useState([]);
+
+  useEffect(() => {
+    axios.get('http://localhost:5001/api/cpus')
+      .then(response => setCpus(response.data))
+      .catch(error => console.error('Ошибка при получении данных:', error));
+  }, []);
+
+  return (
+    <div style={{ padding: 20 }}>
+      <h2>Список процессоров</h2>
+      {cpus.length === 0 ? (
+        <p>Нет данных</p>
+      ) : (
+        <ul>
+          {cpus.map(cpu => (
+            <li key={cpu.id}>{cpu.name} — {cpu.price} ₽</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+export default CpuList;
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\pcconfigurator-client\src\components\GPUForm.js
+import React, { useState } from "react";
+import axios from "axios";
+
+export default function GPUForm({ onAdded }) {
+  const [name, setName] = useState("");
+  const [memorygb, setMemoryGB] = useState("");
+  const [price, setPrice] = useState("");
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await axios.post("http://localhost:8080/api/GPU", {
+        name,
+        memorygb: parseInt(memorygb),
+        price: parseFloat(price),
+      });
+      onAdded(res.data);
+      setName(""); setMemoryGB(""); setPrice("");
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} style={{ marginBottom: "20px" }}>
+      <h4>Видеокарта</h4>
+      <input placeholder="Название" value={name} onChange={e => setName(e.target.value)} required />
+      <input placeholder="Память" type="number" value={memorygb} onChange={e => setMemoryGB(e.target.value)} required />
+      <input placeholder="Цена" type="number" value={price} onChange={e => setPrice(e.target.value)} required />
+      <button type="submit">Добавить</button>
+    </form>
+  );
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\pcconfigurator-client\src\components\guidesData.js
+export const guides = [
+  {
+    id: 1,
+    title: "Полное руководство по сборке ПК с нуля",
+    description: "От распаковки компонентов до первого включения - детальная инструкция для начинающих",
+    image: "/images/guide-build.jpg",
+    difficulty: "Начальный",
+    time: "5 мин",
+    content: `
+      <h3>🔧 Подготовка к сборке</h3>
+      <p><strong>Рабочее место:</strong> Найдите просторный стол с хорошим освещением. Избегайте ковровых покрытий - они накапливают статическое электричество. Рекомендуется использовать антистатический браслет или регулярно касаться неокрашенной металлической части корпуса.</p>
+      
+      <p><strong>Инструменты:</strong> Вам понадобятся крестообразная отвертка, стяжки для кабелей, фонарик. Все компоненты распакуйте и разложите на чистой поверхности.</p>
+      
+      <h3>💻 Установка процессора</h3>
+      <p><strong>Подготовка сокета:</strong> Аккуратно откройте рычаг сокета на материнской плате. Не прикасайтесь к контактам!</p>
+      
+      <p><strong>Правильное позиционирование:</strong> Найдите треугольный маркер в углу процессора и совместите его с таким же маркером на сокете. Процессор должен опуститься в сокет без усилий. Никогда не давите на процессор!</p>
+      
+      <p><strong>Фиксация:</strong> Опустите рычаг сокета до щелчка. Это потребует некоторого усилия, но будьте осторожны.</p>
+      
+      <h3>❄️ Установка системы охлаждения</h3>
+      <p><strong>Термопаста:</strong> Нанесите небольшое количество термопасты (размером с горошину) в центр процессора. Не размазывайте её - давление кулера распределит пасту равномерно.</p>
+      
+      <p><strong>Монтаж кулера:</strong> Совместите крепления кулера с отверстиями на материнской плате. Затягивайте винты крестообразно, по диагонали, чтобы обеспечить равномерное давление.</p>
+      
+      <p><strong>Подключение питания:</strong> Подключите кабель вентилятора к разъему CPU_FAN на материнской плате.</p>
+      
+      <h3>💾 Установка оперативной памяти</h3>
+      <p><strong>Определение слотов:</strong> Для двух планок используйте слоты 2 и 4 (обычно обозначены цветом) для работы в двухканальном режиме.</p>
+      
+      <p><strong>Монтаж:</strong> Откройте защелки по краям слота. Совместите ключ (выемку) на планке памяти с перегородкой в слоте. Равномерно надавите на оба конца планки до щелчка защелок.</p>
+      
+      <h3>🖥️ Установка материнской платы в корпус</h3>
+      <p><strong>Стойки:</strong> Убедитесь, что в корпусе установлены все необходимые стойки для вашего форм-фактора материнской платы.</p>
+      
+      <p><strong>Щит I/O:</strong> Установите заднюю панель в корпус до щелчка.</p>
+      
+      <p><strong>Монтаж:</strong> Аккуратно поместите материнскую плату в корпус, совместив разъемы с отверстиями в щите I/O. Закрепите винтами.</p>
+      
+      <h3>⚡ Подключение питания</h3>
+      <p><strong>Основные кабели:</strong></p>
+      <ul>
+        <li>24-пин ATX - основной кабель питания материнской платы</li>
+        <li>8-пин EPS/ATX12V - питание процессора</li>
+        <li>PCI-E 6+2 pin - питание видеокарты</li>
+        <li>SATA/Molex - питание накопителей и периферии</li>
+      </ul>
+      
+      <p><strong>Передняя панель:</strong> Аккуратно подключите кнопку питания, перезагрузки, индикаторы HDD и питания согласно схеме в руководстве к материнской плате.</p>
+      
+      <h3>🎯 Первое включение и тестирование</h3>
+      <p><strong>Внекорпусная сборка:</strong> Рекомендуется сначала собрать систему вне корпуса на картонной коробке для тестирования.</p>
+      
+      <p><strong>POST-тест:</strong> При успешном включении вы услышите один короткий звуковой сигнал (если есть спикер) и увидите изображение на мониторе.</p>
+      
+      <p><strong>Проблемы:</strong> Если система не включается, проверьте все подключения, убедитесь что блок питания включен, проверьте правильность установки компонентов.</p>
+    `
+  },
+  {
+    id: 2,
+    title: "Блоки питания: полное руководство по выбору и эксплуатации",
+    description: "От сертификатов эффективности до расчета мощности - всё, что нужно знать о сердце ПК",
+    image: "/images/guide-psu.jpg",
+    difficulty: "Средний",
+    time: "5 мин",
+    content: `
+      <h3>🔋 Расчет необходимой мощности</h3>
+      <p><strong>Методика расчета:</strong> Сложите TDP процессора и видеокарты, добавьте 50-100Вт для материнской платы, 5-10Вт на планку оперативной памяти, 10-25Вт на каждый накопитель SSD/HDD.</p>
+      
+      <p><strong>Пример расчета:</strong> Ryzen 7 5800X (105Вт) + RTX 4070 (200Вт) + материнская плата (50Вт) + 32GB RAM (10Вт) + 2 SSD (20Вт) = 385Вт. Умножаем на 1.5 для запаса: 577Вт. Выбираем блок питания на 650-750Вт.</p>
+      
+      <p><strong>Пиковые нагрузки:</strong> Учитывайте, что современные видеокарты могут кратковременно потреблять значительно больше заявленного TDP.</p>
+      
+      <h3>⭐ Сертификаты 80 Plus</h3>
+      <p><strong>Bronze (85% КПД):</strong> Бюджетный вариант для офисных систем</p>
+      <p><strong>Silver (88% КПД):</strong> Редко встречается, промежуточный вариант</p>
+      <p><strong>Gold (90% КПД):</strong> Оптимальное соотношение цены и качества</p>
+      <p><strong>Platinum (92% КПД):</strong> Премиум сегмент для энтузиастов</p>
+      <p><strong>Titanium (94% КПД):</strong> Максимальная эффективность, профессиональное использование</p>
+      
+      <h3>🔌 Форм-факторы и размеры</h3>
+      <p><strong>ATX (150×140×86 мм):</strong> Стандартный размер для большинства корпусов</p>
+      <p><strong>SFX (125×100×63.5 мм):</strong> Для компактных корпусов формата Mini-ITX</p>
+      <p><strong>TFX (85×65×175 мм):</strong> Для ультракомпактных и slim-систем</p>
+      <p><strong>FlexATX (81.5×40.5×150 мм):</strong> Для серверных и специализированных решений</p>
+      
+      <h3>🎛️ Модульность кабелей</h3>
+      <p><strong>Не модульные:</strong> Все кабели припаяны к плате. Плюсы: надежность, низкая цена. Минусы: сложность укладки проводов.</p>
+      
+      <p><strong>Полу модульные:</strong> Основные кабели (24-pin, CPU) несъемные, остальные - модульные. Оптимальный баланс.</p>
+      
+      <p><strong>Полностью модульные:</strong> Все кабели съемные. Максимальная гибкость в сборке и кабель-менеджменте.</p>
+      
+      <h3>⚡ Важные технические характеристики</h3>
+      <p><strong>Линия +12V:</strong> Самый важный параметр. На нее приходится основная нагрузка. Убедитесь, что мощность по линии +12V близка к общей мощности БП.</p>
+      
+      <p><strong>Конденсаторы:</strong> Японские конденсаторы (Nippon Chemi-Con, Rubycon) более надежны и долговечны по сравнению с тайваньскими или китайскими.</p>
+      
+      <p><strong>Защиты:</strong> OCP (перегрузка), OVP (перенапряжение), UVP (пониженное напряжение), SCP (короткое замыкание), OPP (превышение мощности).</p>
+      
+      <h3>🏆 Рейтинг производителей 2024</h3>
+      <p><strong>Премиум сегмент:</strong> Seasonic, Super Flower, be quiet! Dark Power</p>
+      <p><strong>Высокий уровень:</strong> Corsair RM/RMx, EVGA G2/G3, Thermaltake Toughpower</p>
+      <p><strong>Средний уровень:</strong> Cooler Master MWE, Deepcool DQ, Chieftec Proton</p>
+      <p><strong>Бюджетные решения:</strong> AeroCool, FSP, HIPER</p>
+      
+      <h3>🛠️ Правильная эксплуатация</h3>
+      <p><strong>Охлаждение:</strong> Обеспечьте свободный приток воздуха к вентилятору БП. Не устанавливайте блок питания в корпусе вентилятором вверх, если внизу нет вентиляционных отверстий.</p>
+      
+      <p><strong>Нагрузка:</strong> Старайтесь не нагружать блок питания более чем на 80% от номинальной мощности для продления срока службы.</p>
+      
+      <p><strong>Срок службы:</strong> Качественный блок питания служит 7-10 лет. После этого срока рекомендуется замена.</p>
+    `
+  },
+  {
+    id: 3,
+    title: "BIOS/UEFI: от основ до продвинутых настроек",
+    description: "Полное руководство по настройке микропрограммы материнской платы для новичков и энтузиастов",
+    image: "/images/guide-bios.jpg",
+    difficulty: "Средний",
+    time: "7 мин",
+    content: `
+      <h3>🚪 Как войти в BIOS/UEFI</h3>
+      <p><strong>Основные клавиши:</strong></p>
+      <ul>
+        <li><strong>Delete/Del</strong> - ASUS, Gigabyte, ASRock</li>
+        <li><strong>F2</strong> - MSI, большинство ноутбуков</li>
+        <li><strong>F12</strong> - Dell, некоторые Lenovo</li>
+        <li><strong>F1</strong> - IBM, Lenovo (старые модели)</li>
+        <li><strong>Esc</strong> - некоторые материнские платы</li>
+      </ul>
+      
+      <p><strong>Быстрая загрузка Windows:</strong> Если система загружается слишком быстро, в Windows 10/11 зайдите в Параметры → Обновление и безопасность → Восстановление → Особые варианты загрузки → Перезагрузить сейчас → Поиск и устранение неисправностей → Дополнительные параметры → Параметры встроенного ПО UEFI.</p>
+      
+      <h3>🏗️ Структура UEFI BIOS</h3>
+      <p><strong>EZ Mode (простой режим):</strong> Основная информация о системе, быстрые настройки частоты RAM, выбор приоритета загрузки.</p>
+      
+      <p><strong>Advanced Mode (расширенный режим):</strong></p>
+      <ul>
+        <li><strong>Main</strong> - информация о системе, дата/время</li>
+        <li><strong>Ai Tweaker/OC Tweaker</strong> - разгон компонентов</li>
+        <li><strong>Advanced</strong> - настройки чипсета, периферии</li>
+        <li><strong>Monitor</strong> - мониторинг температур, напряжений</li>
+        <li><strong>Boot</strong> - настройки загрузки</li>
+        <li><strong>Tool</strong> - утилиты (обновление BIOS, профили)</li>
+      </ul>
+      
+      <h3>⚡ Обязательные настройки для новой сборки</h3>
+      <p><strong>XMP/EXPO/DOCP:</strong> Включите для автоматического разгона оперативной памяти до заявленной частоты. Без этой настройки RAM будет работать на стандартной частоте (обычно 2133-2666 MHz).</p>
+      
+      <p><strong>Режим работы SATA:</strong> Установите AHCI для SSD и HDD. Режим RAID используется только при создании RAID-массива.</p>
+      
+      <p><strong>Secure Boot:</strong> Технология безопасности, предотвращающая загрузку неподписанного кода. Рекомендуется включить.</p>
+      
+      <p><strong>Fast Boot:</strong> Ускоряет загрузку системы, но может вызвать проблемы с распознаванием USB-устройств.</p>
+      
+      <h3>🚀 Безопасный разгон для начинающих</h3>
+      <p><strong>Разгон оперативной памяти:</strong></p>
+      <ul>
+        <li>Включите XMP/EXPO профиль</li>
+        <li>Проверьте стабильность в MemTest86</li>
+        <li>При ошибках можно немного увеличить напряжение DRAM (не более 1.35V для DDR4, 1.4V для DDR5)</li>
+      </ul>
+      
+      <p><strong>Разгон процессора:</strong></p>
+      <ul>
+        <li>AMD Ryzen: Используйте Precision Boost Overdrive</li>
+        <li>Intel: Увеличивайте множитель постепенно (+1 за тест)</li>
+        <li>Контролируйте температуру (не более 85°C под нагрузкой)</li>
+        <li>Безопасные напряжения: Ryzen до 1.3V, Intel до 1.35V</li>
+      </ul>
+      
+      <h3>🔧 Расширенные настройки</h3>
+      <p><strong>Настройки вентиляторов:</strong></p>
+      <ul>
+        <li><strong>DC Mode</strong> - для 3-пиновых вентиляторов</li>
+        <li><strong>PWM Mode</strong> - для 4-пиновых вентиляторов</li>
+        <li>Настройте кривую вращения для баланса между шумом и охлаждением</li>
+      </ul>
+      
+      <p><strong>Виртуализация:</strong> Включите SVM Mode (AMD) или VT-x/VT-d (Intel) для использования виртуальных машин.</p>
+      
+      <p><strong>ERP Ready:</strong> Включите для уменьшения энергопотребления в выключенном состоянии.</p>
+      
+      <h3>🔄 Обновление BIOS</h3>
+      <p><strong>Подготовка:</strong></p>
+      <ol>
+        <li>Скачайте последнюю версию BIOS с сайта производителя</li>
+        <li>Распакуйте файл на отформатированную в FAT32 USB-флешку</li>
+        <li>Подключите ИБП для защиты от скачков напряжения</li>
+      </ol>
+      
+      <p><strong>Процесс обновления:</strong></p>
+      <ol>
+        <li>Войдите в BIOS → Tool → BIOS Flash Utility</li>
+        <li>Выберите файл с флешки</li>
+        <li>Не выключайте компьютер до полного завершения процесса</li>
+        <li>После обновления выполните Load Optimized Defaults</li>
+      </ol>
+      
+      <h3>🚨 Поиск и решение проблем</h3>
+      <p><strong>Система не загружается после изменений:</strong></p>
+      <ul>
+        <li>Используйте кнопку Clear CMOS на материнской плате</li>
+        <li>Извлеките батарейку CR2032 на 5 минут</li>
+        <li>Замкните контакты JBAT1 перемычкой</li>
+      </ul>
+      
+      <p><strong>Частые проблемы:</strong></p>
+      <ul>
+        <li><strong>Нет изображения</strong> - проверьте подключение монитора к видеокарте</li>
+        <li><strong>Циклическая перезагрузка</strong> - сбросьте настройки BIOS</li>
+        <li><strong>Не видит загрузочное устройство</strong> - проверьте режим загрузки (UEFI/Legacy)</li>
+      </ul>
+      
+      <h3>💾 Сохранение и восстановление настроек</h3>
+      <p><strong>Профили BIOS:</strong> Сохраняйте удачные настройки в профили (обычно до 8 профилей). Назовите их понятными именами: "Разгон RAM", "Тихий режим" и т.д.</p>
+      
+      <p><strong>Резервное копирование:</strong> Некоторые материнские платы позволяют сохранить настройки на USB-накопитель.</p>
+    `
+  }
+];
+
+
+
+FILE: D:\projects\PCConfigurator.api\pcconfigurator-client\src\components\GuidesPage.css
+.guides-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  font-family: Arial, sans-serif;
+}
+
+.guides-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.guides-header h1 {
+  color: #333;
+  margin-bottom: 10px;
+  font-size: 32px;
+}
+
+.guides-header p {
+  color: #666;
+  font-size: 18px;
+}
+
+/* Сетка гайдов */
+.guides-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 25px;
+}
+
+.guide-card {
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.guide-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+}
+
+.guide-image {
+  height: 200px;
+  overflow: hidden;
+}
+
+.guide-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.guide-info {
+  padding: 20px;
+}
+
+.guide-info h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 10px;
+  line-height: 1.3;
+}
+
+.guide-info p {
+  color: #666;
+  font-size: 14px;
+  line-height: 1.4;
+  margin-bottom: 15px;
+}
+
+.guide-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.difficulty {
+  background: #e8f5e8;
+  color: #2d5016;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.time {
+  color: #666;
+  font-size: 12px;
+}
+
+/* Детальная страница гайда */
+.guide-detail {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.back-btn {
+  background: #f8f9fa;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  margin-bottom: 0px;
+  font-size: 14px;
+  transition: background 0.3s ease;
+}
+
+.back-btn:hover {
+  background: #e9ecef;
+}
+
+.guide-content h2 {
+    text-align: center;
+  color: #333;
+  margin-bottom: 30px;
+  font-size: 30px;
+}
+
+.guide-text {
+  line-height: 1.6;
+  color: #444;
+}
+
+.guide-text h3 {
+  color: #0078ff;
+  margin: 25px 0 10px 0;
+  font-size: 20px;
+}
+
+.guide-text p {
+  margin-bottom: 15px;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+  .guides-page {
+    padding: 10px;
+  }
+  
+  .guides-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+
+FILE: D:\projects\PCConfigurator.api\pcconfigurator-client\src\components\GuidesPage.js
+import React, { useState } from "react";
+import { guides } from "./guidesData";
+import "./GuidesPage.css";
+
+export default function GuidesPage() {
+  const [selectedGuide, setSelectedGuide] = useState(null);
+
+  return (
+    <div className="guides-page">
+      {/* Показываем заголовок только когда НЕ выбран гайд */}
+      {!selectedGuide && (
+        <div className="guides-header">
+          <h1>Гайды по сборке ПК</h1>
+          <p>Подробные инструкции для разных целей и бюджетов</p>
+        </div>
+      )}
+
+      {selectedGuide ? (
+        <div className="guide-detail">
+          <button 
+            className="back-btn"
+            onClick={() => setSelectedGuide(null)}
+          >
+            ← Назад к гайдам
+          </button>
+          
+          <div className="guide-content">
+            <h2>{selectedGuide.title}</h2>
+            <div className="guide-meta">
+              <span>Сложность: {selectedGuide.difficulty}</span>
+              <span>Время: {selectedGuide.time}</span>
+            </div>
+            <div 
+              className="guide-text"
+              dangerouslySetInnerHTML={{ __html: selectedGuide.content }}
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="guides-grid">
+          {guides.map(guide => (
+            <div 
+              key={guide.id} 
+              className="guide-card"
+              onClick={() => setSelectedGuide(guide)}
+            >
+              <div className="guide-image">
+                <img src={guide.image} alt={guide.title} />
+              </div>
+              <div className="guide-info">
+                <h3>{guide.title}</h3>
+                <p>{guide.description}</p>
+                <div className="guide-meta">
+                  <span className="difficulty">{guide.difficulty}</span>
+                  <span className="time">⏱ {guide.time}</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+
+FILE: D:\projects\PCConfigurator.api\pcconfigurator-client\src\components\HDDForm.js
+import React, { useState } from "react";
+import axios from "axios";
+
+export default function HDDForm({ onAdded }) {
+  const [name, setName] = useState("");
+  const [capacitygb, setCapacityGB] = useState("");
+  const [price, setPrice] = useState("");
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await axios.post("http://localhost:8080/api/HDD", {
+        name,
+        capacitygb: parseInt(capacitygb),
+        price: parseFloat(price),
+      });
+      onAdded(res.data);
+      setName(""); setCapacityGB(""); setPrice("");
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} style={{ marginBottom: "20px" }}>
+      <h4>HDD накопитель</h4>
+      <input placeholder="Название" value={name} onChange={e => setName(e.target.value)} required />
+      <input placeholder="Память" type="number" value={capacitygb} onChange={e => setCapacityGB(e.target.value)} required />
+      <input placeholder="Цена" type="number" value={price} onChange={e => setPrice(e.target.value)} required />
+      <button type="submit">Добавить</button>
+    </form>
+  );
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\pcconfigurator-client\src\components\Header.css
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 30px;
+  background-color: #222;
+  color: white;
+}
+
+.logo {
+  font-size: 24px;
+  font-weight: bold;
+  color: white !important;
+  text-decoration: none !important;
+}
+
+.logo:hover {
+  font-size: 24px;
+  font-weight: bold;
+}
+
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.nav-links a {
+  color: white;
+  text-decoration: none;
+  padding: 5px 10px;
+  border-radius: 4px;
+}
+
+.nav-links a:hover {
+  background-color: #444;
+}
+
+.auth-links {
+  display: flex;
+  gap: 10px;
+  margin-left: 20px;
+}
+
+.login-btn, .register-btn {
+  border: 1px solid white;
+  padding: 5px 10px;
+  border-radius: 4px;
+}
+
+.logout-btn {
+  background-color: #f44336;
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\pcconfigurator-client\src\components\Header.js
+import React from "react";
+import { Link, useNavigate } from "react-router-dom";
+import "./Header.css";
+
+function Header() {
+  const navigate = useNavigate();
+  const token = localStorage.getItem("token");
+  const username = localStorage.getItem("username");
+  const role = localStorage.getItem("role");
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("username");
+    localStorage.removeItem("role");
+    navigate("/"); // перенаправление на главную после выхода
+  };
+
+  return (
+    <div className="header">
+      <Link to="/" className="logo">PCConfigure</Link>
+
+      <div className="nav-links">
+        <Link to="/">Главная</Link>
+        <Link to="/configurations">Конфигурации</Link>
+        <Link to="/guides">Гайды</Link>
+        <Link to="/chatbot">Чат-бот</Link>
+
+        <div className="auth-links">
+          {token ? (
+            <>
+              <span className="user-info">
+                {role === "Admin" ? (
+                  <span>🛠 Администратор ({username})</span>
+                ) : (
+                  <span>👤 {username}</span>
+                )}
+              </span>
+              <button className="logout-btn" onClick={handleLogout}>
+                Выйти
+              </button>
+            </>
+          ) : (
+            <>
+              <Link to="/login" className="login-btn">
+                Войти
+              </Link>
+              <Link to="/register" className="register-btn">
+                Регистрация
+              </Link>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default Header;
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\pcconfigurator-client\src\components\ItemList.js
+import React from 'react';
+import axios from 'axios';
+
+function ItemList({ items, refresh }) {
+    const handleDelete = async (id) => {
+        await axios.delete(`http://localhost:8080/api/CPU/${id}`);
+        refresh();
+    };
+
+    return (
+        <ul>
+            {items.map(item => (
+                <li key={item.id}>
+                    {item.name} - {item.price}$
+                    <button onClick={() => handleDelete(item.id)}>Delete</button>
+                </li>
+            ))}
+        </ul>
+    );
+}
+
+export default ItemList;
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\pcconfigurator-client\src\components\Login.js
+import React, { useState } from "react";
+import axios from "axios";
+import { useNavigate } from "react-router-dom";
+import "./Auth.css";
+
+export default function Login() {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [message, setMessage] = useState("");
+  const navigate = useNavigate();
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setMessage("");
+
+    try {
+      const res = await axios.post("http://localhost:8080/api/Auth/login", {
+        username,
+        password,
+      });
+
+      // достаём роль (учитываем оба варианта — roles[] или role)
+      const role =
+        res.data.roles && Array.isArray(res.data.roles)
+          ? res.data.roles[0]
+          : res.data.role || "";
+
+      // сохраняем токен и данные
+      localStorage.setItem("token", res.data.token);
+      localStorage.setItem("username", res.data.username);
+      localStorage.setItem("role", role);
+
+      setMessage("✅ Вход выполнен успешно!");
+      setUsername("");
+      setPassword("");
+
+      // через секунду после успешного входа — редирект
+      setTimeout(() => navigate("/"), 1000);
+    } catch (err) {
+      console.error(err);
+
+      if (err.response?.status === 401) {
+        setMessage("⚠ Неверный логин или пароль.");
+      } else if (err.response?.status === 403) {
+        setMessage("⚠ Доступ запрещён. Недостаточно прав.");
+      } else if (err.response?.status === 500) {
+        setMessage("❌ Ошибка сервера при входе.");
+      } else {
+        setMessage("❌ Не удалось войти. Проверьте соединение с сервером.");
+      }
+    }
+  };
+
+  return (
+    <div className="auth-container">
+      <h2>Вход</h2>
+      <form onSubmit={handleLogin}>
+        <input
+          type="text"
+          placeholder="Имя пользователя"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          required
+        />
+        <input
+          type="password"
+          placeholder="Пароль"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+        />
+        <button type="submit">Войти</button>
+      </form>
+      {message && <p className="auth-message">{message}</p>}
+    </div>
+  );
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\pcconfigurator-client\src\components\MainPage.css
+.main-page {
+  display: flex;
+  font-family: Arial, sans-serif;
+}
+
+.sidebar {
+  width: 200px;
+  margin-right: 30px;
+}
+
+.sidebar h3 {
+  margin-bottom: 30px;
+}
+
+.sidebar ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.card.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+
+.input-error {
+  color: red;
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+.modal-content input {
+  width: 100%;
+  padding: 14px 16px;
+  border: 2px solid #e1e5e9;
+  border-radius: 12px;
+  font-size: 16px;
+  margin-bottom: 20px;
+  box-sizing: border-box;
+  transition: all 0.3s ease;
+}
+
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.modal-content {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  font-size: 18px;
+  text-align: center;
+  min-width: 280px;
+}
+
+.modal-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+
+.sidebar li {
+  margin-bottom: 10px;
+}
+
+/* Активная выбранная категория */
+.sidebar a.active {
+  background: #d7e8ff;
+  color: #0b63d1;
+  font-weight: bold;
+  transform: translateX(5px);
+}
+
+.sidebar a {
+  transition: 0.25s ease;
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  color: #222;
+  cursor: pointer;
+}
+
+.sidebar a img {
+  width: 30px;
+  height: 30px;
+  margin-right: 12px;
+}
+
+.sidebar a:hover {
+  color: #007bff;
+}
+
+.items {
+  flex: 1;
+}
+
+.items h3 {
+  margin-top: 0;
+}
+
+/* Сетка (3 в ряд) */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 22px;
+}
+
+/* Карточка */
+.card {
+  background: #ffffff;
+  padding: 16px;
+  border-radius: 14px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  transition: 0.2s;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+/* Hover */
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.15);
+}
+
+/* Фото */
+.card-image {
+  width: 100%;
+  height: 160px;
+  object-fit: contain;
+  margin-bottom: 12px;
+}
+
+/* Название */
+.card-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+/* Краткое описание */
+.card-desc {
+  font-size: 14px;
+  color: #555;
+  height: 48px; 
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+/* Цена */
+.card-price {
+  font-size: 20px;
+  font-weight: 700;
+  color: #0078ff;
+  margin-top: auto;
+}
+
+/* Правая панель */
+.build-panel {
+  width: 260px;
+  margin-left: 30px;
+  margin-top: 60px;
+  background: #fff;
+  padding: 20px;
+  border-radius: 14px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.12);
+  height: fit-content;
+  position: sticky;
+  top: 20px;
+}
+
+.build-title {
+  margin: 0 0 15px 0;
+  font-size: 22px;
+  text-align: center;
+}
+
+/* Фото сборки */
+.build-main-image {
+  width: 100%;
+  height: 200px;
+  object-fit: contain;
+  border-radius: 10px;
+  margin-bottom: 15px;
+}
+
+/* Цена */
+.config-price {
+  font-size: 24px;
+  font-weight: 700;
+  color: #0078ff;
+  text-align: center;
+  margin-bottom: 15px;
+}
+
+/* Кнопки */
+.build-buttons {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.build-btn {
+  width: 48%;
+  padding: 8px;
+  background: #f3f3f3;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: 0.2s;
+}
+
+.build-btn img {
+  width: 20px;
+}
+
+.build-btn:hover {
+  background: #e6e6e6;
+}
+
+.build-btn.delete {
+  background: #ffe3e3;
+}
+
+.build-btn.delete:hover {
+  background: #ffd0d0;
+}
+
+/* Список выбранных компонентов */
+.config-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.config-row {
+  display: flex;
+  flex-direction: column; /* ВАЖНО */
+  margin-bottom: 12px;
+}
+
+
+.config-selected {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 3px;
+}
+
+.config-selected-name {
+  font-size: 14px;
+  color: #333;
+  line-height: 1.2;
+}
+
+
+.config-name {
+  font-weight: 600;
+}
+
+.config-empty {
+  color: #888;
+}
+
+.config-value {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Крестик удаления */
+.remove-item {
+  background: none;
+  border: none;
+  color: #d11;
+  font-size: 18px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+}
+
+.remove-item:hover {
+  color: #a00;
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\pcconfigurator-client\src\components\MainPage.js
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import "./MainPage.css";
+
+const categories = [
+  { id: "CPU", name: "Процессор", icon: "/images/cpu.png" },
+  { id: "GPU", name: "Видеокарта", icon: "/images/gpu.png" },
+  { id: "RAM", name: "Оперативная память", icon: "/images/ram.png" },
+  { id: "Motherboard", name: "Материнская плата", icon: "/images/mb.png" },
+  { id: "SSD", name: "SSD", icon: "/images/ssd.png" },
+  { id: "HDD", name: "Жёсткий диск", icon: "/images/hdd.png" },
+  { id: "PSU", name: "Блок питания", icon: "/images/psu.png" },
+  { id: "Case", name: "Корпус", icon: "/images/case.png" },
+  { id: "ThermalPaste", name: "Термопаста", icon: "/images/thermal.png" }
+];
+
+export default function MainPage() {
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [items, setItems] = useState([]);
+  const [nameError, setNameError] = useState("");
+  const [saveMessage, setSaveMessage] = useState(null);
+
+  const [buildName, setBuildName] = useState("");
+  const [askName, setAskName] = useState(false);
+
+  const normalizeKey = (value) => (value ?? "").toString().trim().toLowerCase().replace(/\s+/g, "");
+
+  const pick = (obj, ...keys) => {
+    for (const k of keys) {
+      const v = obj?.[k];
+      if (v !== undefined && v !== null) return v;
+    }
+    return undefined;
+  };
+
+  const getId = (x) => pick(x, "id", "Id");
+  const getSocket = (x) => pick(x, "socket", "Socket");
+  const getFormFactor = (x) => pick(x, "formFactor", "FormFactor");
+  const getRamType = (x) => pick(x, "ramType", "RAMType");
+  const getMaxRamFreq = (x) => pick(x, "maxRAM", "MaxRAM");
+  const getHasM2 = (x) => pick(x, "hasM2", "HasM2");
+  const getGpuLength = (x) => pick(x, "length", "Length");
+  const getCaseMaxGpuLength = (x) => pick(x, "maxGPULength", "MaxGPULength");
+  const getCpuTdp = (x) => pick(x, "tdp", "TDP");
+  const getGpuPower = (x) => pick(x, "powerConsumption", "PowerConsumption");
+  const getPsuPower = (x) => pick(x, "power", "Power");
+  const getRamTypeFromRam = (x) => pick(x, "type", "Type");
+  const getRamFrequency = (x) => pick(x, "frequency", "Frequency");
+  const getSsdInterface = (x) => pick(x, "interface", "Interface");
+  const getSsdFormFactor = (x) => pick(x, "formFactor", "FormFactor");
+
+  const normalizeFormFactor = (value) => {
+    const k = normalizeKey(value);
+    if (!k) return "";
+    if (k.includes("micro") || k.includes("matx") || k.includes("m-atx") || k.includes("m_atx") || k.includes("microatx")) return "matx";
+    if (k.includes("mini") || k.includes("itx")) return "itx";
+    if (k.includes("atx")) return "atx";
+    return k;
+  };
+
+  const caseSupportsMotherboard = (pcCase, motherboard) => {
+    const c = normalizeFormFactor(getFormFactor(pcCase));
+    const m = normalizeFormFactor(getFormFactor(motherboard));
+    if (!c || !m) return true;
+    const rank = { itx: 1, matx: 2, atx: 3 };
+    if (rank[c] == null || rank[m] == null) return c === m;
+    return rank[c] >= rank[m];
+  };
+
+  const isNvmeOrM2 = (ssd) => {
+    const iface = normalizeKey(getSsdInterface(ssd));
+    const ff = normalizeKey(getSsdFormFactor(ssd));
+    return iface.includes("nvme") || ff.includes("m.2") || ff.includes("m2");
+  };
+
+  const resultFromReasons = (reasons) => ({
+    compatible: reasons.length === 0,
+    reasons,
+    reason: reasons.join("; ")
+  });
+
+  const getCompatibility = (category, item, currentBuild) => {
+    const b = currentBuild;
+
+    if (!item) return resultFromReasons([]);
+
+    if (category === "CPU") {
+      if (!b.Motherboard) return resultFromReasons([]);
+      const reasons = [];
+      const ok = normalizeKey(getSocket(item)) === normalizeKey(getSocket(b.Motherboard));
+      if (!ok) reasons.push("Несовместимый сокет");
+      return resultFromReasons(reasons);
+    }
+
+    if (category === "Motherboard") {
+      const reasons = [];
+
+      if (b.CPU) {
+        const okSocket = normalizeKey(getSocket(item)) === normalizeKey(getSocket(b.CPU));
+        if (!okSocket) reasons.push("Несовместимый сокет");
+      }
+
+      if (b.RAM) {
+        const okType = normalizeKey(getRamType(item)) === normalizeKey(getRamTypeFromRam(b.RAM));
+        if (!okType) reasons.push("Несовместимый тип памяти");
+        const okFreq = Number(getMaxRamFreq(item)) >= Number(getRamFrequency(b.RAM));
+        if (!okFreq) reasons.push("Слишком высокая частота памяти");
+      }
+
+      return resultFromReasons(reasons);
+    }
+
+    if (category === "RAM") {
+      if (!b.Motherboard) return resultFromReasons([]);
+      const reasons = [];
+      const okType = normalizeKey(getRamTypeFromRam(item)) === normalizeKey(getRamType(b.Motherboard));
+      if (!okType) reasons.push("Несовместимый тип памяти");
+      const okFreq = Number(getRamFrequency(item)) <= Number(getMaxRamFreq(b.Motherboard));
+      if (!okFreq) reasons.push("Слишком высокая частота памяти");
+      return resultFromReasons(reasons);
+    }
+
+    if (category === "GPU") {
+      return resultFromReasons([]);
+    }
+
+    if (category === "Case") {
+      return resultFromReasons([]);
+    }
+
+    if (category === "PSU") {
+      const cpuTdp = b.CPU ? Number(getCpuTdp(b.CPU)) : 0;
+      const gpuPower = b.GPU ? Number(getGpuPower(b.GPU)) : 0;
+      if (!cpuTdp && !gpuPower) return resultFromReasons([]);
+      const required = cpuTdp + gpuPower + 150;
+      const reasons = [];
+      const ok = Number(getPsuPower(item)) >= required;
+      if (!ok) reasons.push("Недостаточная мощность блока питания");
+      return resultFromReasons(reasons);
+    }
+
+    if (category === "SSD") {
+      if (!b.Motherboard) return resultFromReasons([]);
+      if (!isNvmeOrM2(item)) return resultFromReasons([]);
+      const reasons = [];
+      const ok = Boolean(getHasM2(b.Motherboard));
+      if (!ok) reasons.push("Нет поддержки M.2");
+      return resultFromReasons(reasons);
+    }
+
+    if (category === "HDD") {
+      return resultFromReasons([]);
+    }
+
+    if (category === "ThermalPaste") {
+      return resultFromReasons([]);
+    }
+
+    return resultFromReasons([]);
+  };
+
+  const isItemCompatible = (category, item, currentBuild) => getCompatibility(category, item, currentBuild).compatible;
+
+  const pruneIncompatible = (currentBuild) => {
+    let b = { ...currentBuild };
+    let changed = true;
+
+    while (changed) {
+      changed = false;
+
+      const checks = [
+        ["CPU", b.CPU],
+        ["Motherboard", b.Motherboard],
+        ["RAM", b.RAM],
+        ["GPU", b.GPU],
+        ["Case", b.Case],
+        ["PSU", b.PSU],
+        ["SSD", b.SSD],
+        ["HDD", b.HDD],
+        ["ThermalPaste", b.ThermalPaste]
+      ];
+
+      for (const [cat, val] of checks) {
+        if (!val) continue;
+        const ok = isItemCompatible(cat, val, b);
+        if (!ok) {
+          b = { ...b, [cat]: null };
+          changed = true;
+        }
+      }
+    }
+
+    return b;
+  };
+
+
+  const saveBuild = async () => {
+    if (!build.CPU || !build.GPU || !build.Motherboard) {
+      setSaveMessage("Добавьте минимум CPU, GPU и Материнскую плату");
+      return;
+    }
+
+    const payload = {
+      Name: buildName || `Сборка ${new Date().toLocaleString()}`,
+      CPUId: build.CPU?.id || null,
+      GPUId: build.GPU?.id || null,
+      RAMId: build.RAM?.id || null,
+      MotherboardId: build.Motherboard?.id || null,
+      SSDId: build.SSD?.id || null,
+      HDDId: build.HDD?.id || null,
+      PSUId: build.PSU?.id || null,
+      CaseId: build.Case?.id || null,
+      ThermalPasteId: build.ThermalPaste?.id || null,
+    };
+
+    try {
+      const token = localStorage.getItem("token");
+
+      await axios.post(
+        "http://localhost:8080/api/PCBuild/save",
+        payload,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      setSaveMessage("Сборка успешно сохранена!");
+    } catch (err) {
+      setSaveMessage("Ошибка при сохранении");
+      console.error(err);
+    }
+  };
+
+
+  const handleSaveClick = () => {
+
+    const missing = Object.entries(build)
+      .filter(([key, value]) => value === null)
+      .map(([key]) => key);
+
+    if (missing.length > 0) {
+      setSaveMessage("Перед сохранением выберите все компоненты сборки!");
+      return;
+    }
+
+    setSaveMessage(null);
+    setAskName(true);
+  };
+
+
+
+  const [build, setBuild] = useState({
+    CPU: null,
+    GPU: null,
+    RAM: null,
+    Motherboard: null,
+    SSD: null,
+    HDD: null,
+    PSU: null,
+    Case: null,
+    ThermalPaste: null
+  });
+
+  const handleAddToBuild = (category, item) => {
+    setBuild(prev => {
+      const newBuild = pruneIncompatible({ ...prev, [category]: item });
+      return newBuild;
+    });
+  };
+
+
+  const removeItem = (category) => {
+    setBuild(prev => ({ ...prev, [category]: null }));
+  };
+
+  const clearBuild = () => {
+    setBuild({
+      CPU: null,
+      GPU: null,
+      RAM: null,
+      Motherboard: null,
+      SSD: null,
+      HDD: null,
+      PSU: null,
+      Case: null,
+      ThermalPaste: null
+    });
+  };
+
+  const totalPrice = Object.values(build)
+    .filter(x => x)
+    .reduce((sum, item) => sum + item.price, 0);
+
+  // главное изображение сборки
+  const buildImage = "/images/pc.png";
+
+
+  useEffect(() => {
+    if (!selectedCategory) return;
+    axios
+      .get(`http://localhost:8080/api/${selectedCategory}`)
+      .then(res => setItems(res.data))
+      .catch(err => console.error("Ошибка:", err));
+  }, [selectedCategory]);
+
+  return (
+    <div className="main-page">
+
+      {saveMessage && (
+        <div className="modal">
+          <div className="modal-content">
+            <p>{saveMessage}</p>
+            <button onClick={() => setSaveMessage(null)}>Ок</button>
+          </div>
+        </div>
+      )}
+
+      {askName && (
+        <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+
+            <h3>Название сборки</h3>
+
+            {nameError && ( 
+              <p className="input-error">{nameError}</p>
+            )}
+
+            <input
+              type="text"
+              placeholder="Введите название"
+              value={buildName}
+              onChange={(e) => setBuildName(e.target.value)}
+            />
+
+            <div className="modal-buttons">
+              <button
+                className="build-btn"
+                onClick={() => {
+                  if (!buildName.trim()) {
+                    setNameError("Введите название сборки!"); 
+                    return;
+                  }
+                  setNameError("");
+                  setAskName(false);
+                  saveBuild();
+                }}
+              >
+                Сохранить
+              </button>
+
+              <button 
+              className="build-btn delete"
+              onClick={() => {
+                setAskName(false);
+                setNameError("");
+              }}>Отмена</button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Левое меню */}
+      <div className="sidebar">
+        <h2>Категории</h2>
+        <ul>
+          {categories.map(cat => (
+            <li key={cat.id}>
+              <a
+                className={selectedCategory === cat.id && !askName && !saveMessage ? "active" : ""}
+                onClick={() => setSelectedCategory(cat.id)}
+              >
+                <img src={cat.icon} alt={cat.name} />
+                {cat.name}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Центральные карточки */}
+      <div className="items">
+        <h2>{selectedCategory || "Выберите категорию"}</h2>
+
+        {items.length === 0 ? (
+          selectedCategory && <p>Нет данных</p>
+        ) : (
+          <div className="grid">
+            {items.map(item => {
+              const comp = getCompatibility(selectedCategory, item, build);
+              return (
+                <div
+                  className={`card ${!comp.compatible ? "disabled" : ""}`}
+                  key={item.id}
+                  title={!comp.compatible ? comp.reason : ""}
+                  onClick={() => {
+                    if (!comp.compatible) return;
+                    handleAddToBuild(selectedCategory, item);
+                  }}
+                >
+                <img
+                  className="card-image"
+                  src={item.imageUrl || "/images/no-image.png"}
+                  alt={item.name}
+                />
+                <h3 className="card-title">{item.name}</h3>
+                <p className="card-desc">{item.shortDescription}</p>
+                <div className="card-price">{item.price} ₽</div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Правая панель */}
+      <div className="build-panel">
+
+        <h2 className="build-title">Конфигурация</h2>
+
+        <img className="build-main-image" src={buildImage} alt="config" />
+
+        <div className="config-price">{totalPrice} ₽</div>
+
+        <div className="build-buttons">
+          
+          <button
+            className="build-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleSaveClick();
+            }}
+          >
+            <img src="/images/savebuild.png" alt="save" />
+            Сохранить
+          </button>
+
+          <button className="build-btn delete" onClick={clearBuild}>
+            <img src="/images/deletebuild.png" alt="delete" />
+            Очистить
+          </button>
+        </div>
+
+      <ul className="config-list">
+        {categories.map(cat => (
+          <li key={cat.id} className="config-row">
+
+            <span className="config-name">{cat.name}:</span>
+
+            {build[cat.id] ? (
+              <div className="config-selected">
+                <span className="config-selected-name">{build[cat.id].name}</span>
+                <button className="remove-item" onClick={() => removeItem(cat.id)}>×</button>
+              </div>
+            ) : (
+              <span className="config-empty">Не выбрано</span>
+            )}
+
+          </li>
+        ))}
+      </ul>
+
+
+      </div>
+    </div>
+  );
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\pcconfigurator-client\src\components\MBForm.js
+import React, { useState } from "react";
+import axios from "axios";
+
+export default function MBForm({ onAdded }) {
+  const [name, setName] = useState("");
+  const [cores, setCores] = useState("");
+  const [frequency, setFrequency] = useState("");
+  const [price, setPrice] = useState("");
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await axios.post("http://localhost:8080/api/Motherboard", {
+        name,
+        cores: parseInt(cores),
+        frequency: parseInt(frequency),
+        price: parseFloat(price),
+      });
+      onAdded(res.data);
+      setName(""); setCores(""); setFrequency(""); setPrice("");
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} style={{ marginBottom: "20px" }}>
+      <h4>Материнская плата</h4>
+      <input placeholder="Название" value={name} onChange={e => setName(e.target.value)} required />
+      <input placeholder="Ядра" type="number" value={cores} onChange={e => setCores(e.target.value)} required />
+      <input placeholder="Частота" type="number" value={frequency} onChange={e => setFrequency(e.target.value)} required />
+      <input placeholder="Цена" type="number" value={price} onChange={e => setPrice(e.target.value)} required />
+      <button type="submit">Добавить</button>
+    </form>
+  );
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\pcconfigurator-client\src\components\PCBuilder.js
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+
+export default function PCBuilder() {
+  const [cpus, setCpus] = useState([]);
+  const [gpus, setGpus] = useState([]);
+  const [selectedCPU, setSelectedCPU] = useState(null);
+  const [selectedGPU, setSelectedGPU] = useState(null);
+  const [buildName, setBuildName] = useState("");
+
+  useEffect(() => {
+    axios.get("http://localhost:8080/api/cpu").then(res => setCpus(res.data));
+    axios.get("http://localhost:8080/api/gpu").then(res => setGpus(res.data));
+  }, []);
+
+  const totalPrice = (selectedCPU?.price || 0) + (selectedGPU?.price || 0);
+
+  const saveBuild = async () => {
+    if (!selectedCPU || !selectedGPU || !buildName) return alert("Выберите всё и укажите имя сборки");
+
+    await axios.post("http://localhost:8080/api/PCBuild", {
+      CPUId: selectedCPU.id,
+      GPUId: selectedGPU.id,
+      Name: buildName,
+      TotalPrice: totalPrice
+    });
+
+    alert("Сборка сохранена!");
+  };
+
+  return (
+    <div>
+      <h2>Сборка ПК</h2>
+      <input
+        type="text"
+        placeholder="Имя сборки"
+        value={buildName}
+        onChange={(e) => setBuildName(e.target.value)}
+      />
+      <select onChange={(e) => setSelectedCPU(cpus.find(c => c.id === +e.target.value))}>
+        <option value="">Выберите CPU</option>
+        {cpus.map(cpu => <option key={cpu.id} value={cpu.id}>{cpu.name} - {cpu.price}₽</option>)}
+      </select>
+      <select onChange={(e) => setSelectedGPU(gpus.find(g => g.id === +e.target.value))}>
+        <option value="">Выберите GPU</option>
+        {gpus.map(gpu => <option key={gpu.id} value={gpu.id}>{gpu.name} - {gpu.price}₽</option>)}
+      </select>
+      <div>Итоговая цена: {totalPrice}₽</div>
+      <button onClick={saveBuild}>Сохранить сборку</button>
+    </div>
+  );
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\pcconfigurator-client\src\components\ProtectedRoute.js
+import React from "react";
+import { Navigate } from "react-router-dom";
+
+export default function ProtectedRoute({ children, role }) {
+  const token = localStorage.getItem("token");
+  const userRole = localStorage.getItem("role");
+
+  if (!token) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (role && userRole !== role) {
+    return <p>Access denied</p>;
+  }
+
+  return children;
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\pcconfigurator-client\src\components\PSUForm.js
+import React, { useState } from "react";
+import axios from "axios";
+
+export default function PSUForm({ onAdded }) {
+  const [name, setName] = useState("");
+  const [wattage, setWattage] = useState("");
+  const [price, setPrice] = useState("");
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await axios.post("http://localhost:8080/api/PSU", {
+        name,
+        cores: parseInt(wattage),
+        price: parseFloat(price),
+      });
+      onAdded(res.data);
+      setName(""); setWattage(""); setPrice("");
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} style={{ marginBottom: "20px" }}>
+      <h4>Блок питания</h4>
+      <input placeholder="Название" value={name} onChange={e => setName(e.target.value)} required />
+      <input placeholder="Вольтаж" type="number" value={wattage} onChange={e => setWattage(e.target.value)} required />
+      <input placeholder="Цена" type="number" value={price} onChange={e => setPrice(e.target.value)} required />
+      <button type="submit">Добавить</button>
+    </form>
+  );
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\pcconfigurator-client\src\components\RAMForm.js
+import React, { useState } from "react";
+import axios from "axios";
+
+export default function RAMForm({ onAdded }) {
+  const [name, setName] = useState("");
+  const [memorygb, setMemoryGB] = useState("");
+  const [frequency, setFrequency] = useState("");
+  const [price, setPrice] = useState("");
+  const [typeddr, setTypeDDR] = useState("");
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await axios.post("http://localhost:8080/api/RAM", {
+        name,
+        memorygb: parseInt(memorygb),
+        frequency: parseInt(frequency),
+        price: parseFloat(price),
+        typeddr: parseInt(typeddr),
+      });
+      onAdded(res.data);
+      setName(""); setMemoryGB(""); setFrequency(""); setPrice(""); setTypeDDR("");
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} style={{ marginBottom: "20px" }}>
+      <h4>Оперативная память</h4>
+      <input placeholder="Название" value={name} onChange={e => setName(e.target.value)} required />
+      <input placeholder="Память" type="number" value={memorygb} onChange={e => setMemoryGB(e.target.value)} required />
+      <input placeholder="Частота" type="number" value={frequency} onChange={e => setFrequency(e.target.value)} required />
+      <input placeholder="Цена" type="number" value={price} onChange={e => setPrice(e.target.value)} required />
+      <input placeholder="Тип ДДР" type="number" value={typeddr} onChange={e => setTypeDDR(e.target.value)} required />
+      <button type="submit">Добавить</button>
+    </form>
+  );
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\pcconfigurator-client\src\components\Register.js
+import React, { useState } from "react";
+import axios from "axios";
+import "./Auth.css";
+
+export default function Register() {
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState(""); 
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [message, setMessage] = useState("");
+
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    setMessage("");
+
+    if (password !== confirmPassword) {
+      setMessage("⚠ Пароли не совпадают.");
+      return;
+    }
+
+    try {
+      const res = await axios.post("http://localhost:8080/api/Auth/register", {
+        username,
+        email,
+        password,
+      });
+
+      if (res.status === 200) {
+        setMessage("✅ Регистрация успешна! Теперь войдите в аккаунт.");
+        setUsername("");
+        setEmail("");
+        setPassword("");
+        setConfirmPassword("");
+      }
+    } catch (err) {
+        console.error(err);
+
+        if (err.response?.status === 400) {
+            const data = err.response.data;
+
+            let errorsArray = [];
+
+            if (Array.isArray(data)) errorsArray = data.map(e => e.description);
+            else if (data?.errors && Array.isArray(data.errors))
+            errorsArray = data.errors.map(e => e.description);
+            else if (typeof data === "string") errorsArray = [data];
+
+            const combined = errorsArray.join(" ");
+
+            if (
+            combined.includes("Passwords must be at least 6 characters") &&
+            combined.includes("one non alphanumeric character") &&
+            combined.includes("one lowercase") &&
+            combined.includes("one uppercase")
+            ) {
+            setMessage(
+                "⚠ Пароль должен быть не менее 6 символов, содержать хотя бы одну заглавную букву, одну строчную, цифру и спецсимвол."
+            );
+            } 
+            
+            else if (combined.includes("User already exists")) {
+            setMessage("⚠ Пользователь уже существует.");
+            } 
+            else {
+            setMessage(`⚠ Ошибки: ${combined}`);
+            }
+        } else {
+            setMessage("❌ Ошибка при регистрации.");
+        }
+        }
+
+  };
+
+  return (
+    <div className="auth-container">
+      <h2>Регистрация</h2>
+      <form onSubmit={handleRegister}>
+        <input
+          type="text"
+          placeholder="Имя пользователя"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          required
+        />
+        <input
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+        />
+        <input
+          type="password"
+          placeholder="Пароль"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+        />
+        <input
+          type="password"
+          placeholder="Подтверждение пароля"
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          required
+        />
+        <button type="submit">Зарегистрироваться</button>
+      </form>
+      {message && <p className="auth-message">{message}</p>}
+    </div>
+  );
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\pcconfigurator-client\src\components\SSDForm.js
+import React, { useState } from "react";
+import axios from "axios";
+
+export default function SSDForm({ onAdded }) {
+  const [name, setName] = useState("");
+  const [capacitygb, setCapacityGB] = useState("");
+  const [price, setPrice] = useState("");
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await axios.post("http://localhost:8080/api/SSD", {
+        name,
+        capacitygb: parseInt(capacitygb),
+        price: parseFloat(price),
+      });
+      onAdded(res.data);
+      setName(""); setCapacityGB(""); setPrice("");
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} style={{ marginBottom: "20px" }}>
+      <h4>SSD накопитель</h4>
+      <input placeholder="Название" value={name} onChange={e => setName(e.target.value)} required />
+      <input placeholder="Память" type="number" value={capacitygb} onChange={e => setCapacityGB(e.target.value)} required />
+      <input placeholder="Цена" type="number" value={price} onChange={e => setPrice(e.target.value)} required />
+      <button type="submit">Добавить</button>
+    </form>
+  );
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\pcconfigurator-client\src\components\ThermalPasteForm.js
+import React, { useState } from "react";
+import axios from "axios";
+
+export default function ThermalPasteForm({ onAdded }) {
+  const [name, setName] = useState("");
+  const [volumeml, setVolumeML] = useState("");
+  const [price, setPrice] = useState("");
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await axios.post("http://localhost:8080/api/ThermalPaste", {
+        name,
+        volumeml: parseFloat(volumeml),
+        price: parseFloat(price),
+      });
+      onAdded(res.data);
+      setName(""); setVolumeML(""); setPrice("");
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} style={{ marginBottom: "20px" }}>
+      <h4>Термопаста</h4>
+      <input placeholder="Название" value={name} onChange={e => setName(e.target.value)} required />
+      <input placeholder="Объем" type="number" value={volumeml} onChange={e => setVolumeML(e.target.value)} required />
+      <input placeholder="Цена" type="number" value={price} onChange={e => setPrice(e.target.value)} required />
+      <button type="submit">Добавить</button>
+    </form>
+  );
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\pcconfigurator-client\src\index.css
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\pcconfigurator-client\src\index.js
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import './index.css';
+import App from './App';
+import reportWebVitals from './reportWebVitals';
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
+
+// If you want to start measuring performance in your app, pass a function
+// to log results (for example: reportWebVitals(console.log))
+// or send to an analytics endpoint. Learn more: https://bit.ly/CRA-vitals
+reportWebVitals();
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\pcconfigurator-client\src\reportWebVitals.js
+const reportWebVitals = onPerfEntry => {
+  if (onPerfEntry && onPerfEntry instanceof Function) {
+    import('web-vitals').then(({ getCLS, getFID, getFCP, getLCP, getTTFB }) => {
+      getCLS(onPerfEntry);
+      getFID(onPerfEntry);
+      getFCP(onPerfEntry);
+      getLCP(onPerfEntry);
+      getTTFB(onPerfEntry);
+    });
+  }
+};
+
+export default reportWebVitals;
+
+
+
+
+FILE: D:\projects\PCConfigurator.api\pcconfigurator-client\src\setupTests.js
+// jest-dom adds custom jest matchers for asserting on DOM nodes.
+// allows you to do things like:
+// expect(element).toHaveTextContent(/react/i)
+// learn more: https://github.com/testing-library/jest-dom
+import '@testing-library/jest-dom';
+
+
+
+

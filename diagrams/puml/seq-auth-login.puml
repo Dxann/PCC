@@ -1,0 +1,24 @@
+@startuml
+
+actor "Пользователь" as U
+participant "Frontend" as Client
+participant "API" as API
+participant "Backend" as Identity
+participant "JWT" as JWT
+
+U -> Client: вводит username/password
+Client -> API: передаёт данные для входа
+API -> Identity: Проверка user/pass
+Identity --> API: успешно / отказ
+alt success
+  API -> JWT: сформировать токен
+  JWT --> API: токен
+  API --> Client: вход выполнен (токен)
+  Client -> Client: сохранить token/role в localStorage
+  Client --> U: переход на главную
+else invalid credentials
+  API --> Client: ошибка: неверный логин или пароль
+  Client --> U: сообщение об ошибке
+end
+
+@enduml

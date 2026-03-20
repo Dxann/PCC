@@ -1,0 +1,17 @@
+@startuml
+
+autonumber
+actor "Пользователь" as U
+participant "Frontend" as Client
+participant "API" as API
+database "Backend" as DB
+
+U -> Client: открывает /configurations
+Client -> API: запрашивает список моих лайков (токен)
+API -> API: проверить токен, получить UserId
+API -> DB: получить лайки пользователя
+DB --> API: likes[]
+API --> Client: возвращает список лайков
+Client --> U: отмечает лайкнутые сборки
+
+@enduml

@@ -1,0 +1,16 @@
+@startuml
+
+autonumber
+actor "Пользователь" as U
+participant "Frontend" as Client
+participant "API" as API
+participant "GigaChat" as GC
+
+U -> Client: вводит вопрос
+Client -> API: отправляет вопрос
+API -> GC: запрашивает ответ у модели (через OAuth)
+GC --> API: ответ
+API --> Client: возвращает ответ
+Client --> U: отображение ответа
+
+@enduml

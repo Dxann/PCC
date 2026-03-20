@@ -1,0 +1,42 @@
+@startuml
+left to right direction
+skinparam actorStyle stickman
+skinparam usecase {
+  BackgroundColor LightYellow
+  BorderColor Black
+}
+skinparam packageStyle rectangle
+
+actor "Пользователь" as User
+
+rectangle {
+  usecase "Регистрация пациента" as UC_Access
+  usecase "Управление каталогом компонентов" as UC_Catalog
+  usecase "Управление сборкой ПК" as UC_Build
+  usecase "Управление лайками" as UC_Likes
+  usecase "Управление гайдами" as UC_Guides
+  usecase "Управление чат ботом" as UC_Chat
+  usecase "Управление пользователями" as UC_AdminUsers
+}
+
+actor "Администратор" as Admin
+
+User --> UC_Access
+User --> UC_Build
+User --> UC_Likes
+
+UC_Access --> Admin
+UC_Build <-- Admin
+UC_Likes <-- Admin
+UC_AdminUsers <-- Admin
+
+UC_Catalog <-- Admin
+UC_Catalog --> User
+
+UC_Guides <-- Admin
+UC_Guides --> User
+
+UC_Chat <-- Admin
+UC_Chat --> User
+
+@enduml

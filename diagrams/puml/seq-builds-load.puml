@@ -1,0 +1,19 @@
+@startuml
+
+autonumber
+actor "Пользователь" as U
+participant "Frontend" as Client
+participant "API" as API
+database "Backend" as DB
+
+U -> Client: открывает /configurations
+Client -> API: запрашивает список сборок (токен)
+API -> API: проверить токен
+API -> DB: получить сборки + компоненты + пользователей
+DB --> API: builds
+API -> DB: получить лайки
+DB --> API: likes
+API --> Client: возвращает список сборок (с отметками лайков)
+Client --> U: отображение карточек сборок
+
+@enduml

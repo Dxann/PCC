@@ -1,0 +1,117 @@
+@startuml
+' BCE / Robustness diagram: Boundary - Control - Entity
+
+top to bottom direction
+skinparam linetype ortho
+skinparam shadowing false
+skinparam ranksep 60
+skinparam nodesep 35
+
+' --- Boundary objects (UI forms/pages) ---
+package "Boundary" {
+  circle "Регистрация пациента" as B_Access
+  circle "Управление каталогом компонентов" as B_Catalog
+  circle "Управление сборкой ПК" as B_Build
+  circle "Управление лайками" as B_Likes
+  circle "Управление гайдами" as B_Guides
+  circle "Управление чат ботом" as B_Chat
+  circle "Управление пользователями" as B_AdminUsers
+}
+
+' --- Control objects (application logic) ---
+package "Control" {
+  circle "Клиент\nконтроллер" as C_Client
+  circle "Админ\nконтроллер" as C_Admin
+}
+
+' --- Entity objects (DB) ---
+package "Entity" {
+  circle "ApplicationUser" as E_User
+  circle "PCBuild" as E_Build
+  circle "PCBuildLike" as E_Like
+
+  circle "CPU" as E_CPU
+  circle "GPU" as E_GPU
+  circle "RAM" as E_RAM
+  circle "Motherboard" as E_MB
+  circle "SSD" as E_SSD
+  circle "HDD" as E_HDD
+  circle "PSU" as E_PSU
+  circle "Case" as E_Case
+  circle "ThermalPaste" as E_ThermalPaste
+}
+
+' --- Layout helpers (3 horizontal rows) ---
+B_Access -[hidden]right-> B_Catalog
+B_Catalog -[hidden]right-> B_Build
+B_Build -[hidden]right-> B_Likes
+B_Likes -[hidden]right-> B_Guides
+B_Guides -[hidden]right-> B_Chat
+B_Chat -[hidden]right-> B_AdminUsers
+
+C_Client -[hidden]right-> C_Admin
+
+E_User -[hidden]right-> E_Build
+E_Build -[hidden]right-> E_Like
+E_Like -[hidden]right-> E_CPU
+E_CPU -[hidden]right-> E_GPU
+E_GPU -[hidden]right-> E_RAM
+E_RAM -[hidden]right-> E_MB
+E_MB -[hidden]right-> E_SSD
+E_SSD -[hidden]right-> E_HDD
+E_HDD -[hidden]right-> E_PSU
+E_PSU -[hidden]right-> E_Case
+E_Case -[hidden]right-> E_ThermalPaste
+
+' Anchor rows vertically
+B_Build -[hidden]down-> C_Client
+C_Client -[hidden]down-> E_Build
+
+' --- Boundary -> Control (only) ---
+' Пользователь управляет
+B_Access -[#red]- C_Client
+B_Build -[#red]- C_Client
+B_Likes -[#red]- C_Client
+
+' Администратор управляет
+B_Access -[#blue]- C_Admin
+B_Build -[#blue]- C_Admin
+B_Likes -[#blue]- C_Admin
+B_AdminUsers -[#blue]- C_Admin
+
+' Управление через Boundary (админ управляет, клиент потребляет)
+B_Catalog -[#blue]- C_Admin
+B_Catalog -[#red]- C_Client
+
+B_Guides -[#blue]- C_Admin
+B_Guides -[#red]- C_Client
+
+B_Chat -[#blue]- C_Admin
+B_Chat -[#red]- C_Client
+
+' --- Control -> Entity (only) ---
+C_Client -[#red]- E_User
+C_Client -[#red]- E_Build
+C_Client -[#red]- E_Like
+C_Client -[#red]- E_CPU
+C_Client -[#red]- E_GPU
+C_Client -[#red]- E_RAM
+C_Client -[#red]- E_MB
+C_Client -[#red]- E_SSD
+C_Client -[#red]- E_HDD
+C_Client -[#red]- E_PSU
+C_Client -[#red]- E_Case
+C_Client -[#red]- E_ThermalPaste
+
+C_Admin -[#blue]- E_User
+C_Admin -[#blue]- E_CPU
+C_Admin -[#blue]- E_GPU
+C_Admin -[#blue]- E_RAM
+C_Admin -[#blue]- E_MB
+C_Admin -[#blue]- E_SSD
+C_Admin -[#blue]- E_HDD
+C_Admin -[#blue]- E_PSU
+C_Admin -[#blue]- E_Case
+C_Admin -[#blue]- E_ThermalPaste
+
+@enduml

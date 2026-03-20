@@ -1,0 +1,18 @@
+@startuml
+
+autonumber
+actor "Пользователь" as U
+participant "Frontend" as Client
+participant "API" as API
+database "Backend" as DB
+
+U -> Client: открывает страницу
+loop для каждой категории (CPU/GPU/RAM/...)
+  Client -> API: запрашивает список компонентов категории
+  API -> DB: читает список компонентов из БД
+  DB --> API: items
+  API --> Client: возвращает список компонентов
+end
+Client --> U: отображение карточек
+
+@enduml

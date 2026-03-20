@@ -1,0 +1,165 @@
+@startuml
+skinparam classAttributeIconSize 0
+hide empty members
+
+top to bottom direction
+
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam ranksep 105
+skinparam nodesep 70
+skinparam class {
+  BackgroundColor White
+  BorderColor Black
+}
+
+package "Models" {
+  class ApplicationUser {
+    +Id: string
+    +UserName: string
+  }
+
+  class CPU {
+    +Id: int
+    +Name: string
+    +Socket: string
+    +TDP: int
+    +Price: decimal
+  }
+
+  class GPU {
+    +Id: int
+    +Name: string
+    +PowerConsumption: int
+    +Price: decimal
+  }
+
+  class RAM {
+    +Id: int
+    +Name: string
+    +Type: string
+    +Frequency: int
+    +Price: decimal
+  }
+
+  class Motherboard {
+    +Id: int
+    +Name: string
+    +Socket: string
+    +RAMType: string
+    +MaxRAM: int
+    +HasM2: bool
+    +Price: decimal
+  }
+
+  class SSD {
+    +Id: int
+    +Name: string
+    +Interface: string
+    +FormFactor: string
+    +Price: decimal
+  }
+
+  class HDD {
+    +Id: int
+    +Name: string
+    +Interface: string
+    +Price: decimal
+  }
+
+  class PSU {
+    +Id: int
+    +Name: string
+    +Power: int
+    +Price: decimal
+  }
+
+  class Case {
+    +Id: int
+    +Name: string
+    +FormFactor: string
+    +Price: decimal
+  }
+
+  class ThermalPaste {
+    +Id: int
+    +Name: string
+    +ThermalConductivity: float
+    +Price: decimal
+  }
+
+  class PCBuild {
+    +Id: int
+    +Name: string
+    +TotalPrice: decimal
+    +CreatedAt: DateTime
+    --
+    +UserId: string (FK)
+    +CPUId: int? (FK)
+    +GPUId: int? (FK)
+    +RAMId: int? (FK)
+    +MotherboardId: int? (FK)
+    +SSDId: int? (FK)
+    +HDDId: int? (FK)
+    +PSUId: int? (FK)
+    +CaseId: int? (FK)
+    +ThermalPasteId: int? (FK)
+  }
+
+  class PCBuildLike {
+    +Id: int
+    +CreatedAt: DateTime
+    --
+    +BuildId: int (FK)
+    +UserId: string (FK)
+  }
+}
+
+package "Relationships" {
+  ' --- Layout helpers (hidden links + groups) ---
+  ' Top row ordering
+  GPU -[hidden]right-> RAM
+  RAM -[hidden]right-> Motherboard
+
+  ' Bottom row ordering
+  CPU -[hidden]right-> SSD
+  SSD -[hidden]right-> HDD
+  HDD -[hidden]right-> PSU
+  PSU -[hidden]right-> Case
+  Case -[hidden]right-> ThermalPaste
+
+  ' Put PCBuild in the center between rows
+  PCBuild -[hidden]down-> CPU
+  PCBuild -[hidden]down-> SSD
+  PCBuild -[hidden]down-> HDD
+
+  ' Put Motherboard below-right of PCBuild
+  PCBuild -[hidden]down-> Motherboard
+  Motherboard -[hidden]right-> PCBuildLike
+
+  ' Center side blocks around PCBuild
+  ApplicationUser -[hidden]left-> PCBuild
+  PCBuild -[hidden]right-> PCBuildLike
+
+  ' Keep user and likes close to the main entity
+  ' (kept by the hidden directional links above)
+
+  ' --- Domain relationships (with verb labels) ---
+  PCBuild "0..*" o-- "0..1" CPU : содержит
+  PCBuild "0..*" o-- "0..1" GPU : содержит
+  PCBuild "0..*" o-- "0..1" RAM : содержит
+  PCBuild "0..*" o-- "0..1" Motherboard : содержит
+  PCBuild "0..*" o--- "0..1" SSD : содержит
+  PCBuild "0..*" o-- "0..1" HDD : содержит
+  PCBuild "0..*" o-- "0..1" PSU : содержит
+  PCBuild "0..*" o-- "0..1" Case : содержит
+  PCBuild "0..*" o-- "0..1" ThermalPaste : содержит
+
+  ApplicationUser "1" <--- "0..*" PCBuild : владеет
+
+  PCBuildLike "0..*" --> "1" PCBuild : относится к
+  ApplicationUser "1" <-- "0..*" PCBuildLike : ставит лайк
+}
+
+@enduml

@@ -1,0 +1,20 @@
+@startuml
+
+autonumber
+actor "Пользователь" as U
+participant "Frontend" as Client
+participant "Проверка совместимости" as Compat
+participant "State storage" as Build
+
+U -> Client: выбирает компонент
+Client -> Compat: проверить совместимость
+alt compatible
+  Client -> Build: сохранить выбор
+  Client -> Compat: удалить несовместимые выбранные
+  Compat --> Client: ok
+  Client --> U: обновление UI, несовместимые серые
+else incompatible
+  Client --> U: компонент недоступен (tooltip с причиной)
+end
+
+@enduml

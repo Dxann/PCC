@@ -1,0 +1,21 @@
+@startuml
+
+autonumber
+actor "Пользователь" as U
+participant "Frontend" as Client
+participant "WeblocalStorage" as LS
+
+U -> Client: открывает /admin
+Client -> LS: читает token и role
+LS --> Client: token и role (если есть)
+alt no token
+  Client --> U: редирект на /login
+else token exists
+  alt role != Admin
+    Client --> U: "Доступ запрещён"
+  else role == Admin
+    Client --> U: открыть админ‑панель
+  end
+end
+
+@enduml

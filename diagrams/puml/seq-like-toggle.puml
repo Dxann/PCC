@@ -1,0 +1,25 @@
+@startuml
+
+autonumber
+actor "Пользователь" as U
+participant "Frontend" as Client
+participant "API" as API
+database "Backend" as DB
+
+U -> Client: нажимает лайк
+Client -> API: переключить лайк (токен)
+API -> API: проверить токен, получить UserId
+API -> DB: найти лайк (BuildId, UserId)
+DB --> API: existing?
+alt already liked
+  API -> DB: удалить лайк
+  DB --> API: ok
+  API --> Client: подтверждение (лайк убран)
+else not liked
+  API -> DB: добавить лайк
+  DB --> API: ok
+  API --> Client: подтверждение (лайк поставлен)
+end
+Client --> U: обновление иконки и счётчика
+
+@enduml

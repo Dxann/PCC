@@ -1,0 +1,20 @@
+@startuml
+
+autonumber
+actor "Пользователь" as U
+participant "Frontend" as Client
+participant "API" as API
+database "Backend" as DB
+
+U -> Client: нажимает "Сохранить"
+Client -> API: отправляет выбранные компоненты и токен
+API -> API: проверить токен, получить UserId
+API -> DB: загрузить выбранные компоненты
+DB --> API: компоненты
+API -> API: посчитать TotalPrice
+API -> DB: сохранить PCBuild
+DB --> API: build
+API --> Client: возвращает сохранённую сборку
+Client --> U: сообщение об успешном сохранении
+
+@enduml

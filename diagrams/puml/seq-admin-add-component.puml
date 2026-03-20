@@ -1,0 +1,17 @@
+@startuml
+
+autonumber
+actor "Админ" as A
+participant "Frontend" as Client
+participant "API" as API
+database "Backend" as DB
+
+A -> Client: заполняет форму компонента
+Client -> API: данные компонентов
+API -> DB: добавление данных
+DB --> API: Id сущности
+API --> Client: Ответ HTTP
+Client --> A: компонент добавлен
+
+
+@enduml
